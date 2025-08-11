@@ -1,0 +1,15 @@
+
+build/
+install/
+log/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+
+# IDEs y temporales
+.vscode/
+.idea/
+*.swp
+*.DS_Store
