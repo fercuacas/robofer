@@ -1,7 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include "robo_eyes/robo_eyes.hpp"
+#include "robofer/eyes.hpp"
 
 using robo_eyes::RoboEyes; using robo_eyes::Mood; using robo_eyes::Pos;
 
