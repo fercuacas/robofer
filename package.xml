@@ -14,12 +14,15 @@
   <exec_depend>rclcpp</exec_depend>
 
   <!-- OpenCV from system -->
+  <build_depend>opencv</build_depend>
+  <exec_depend>opencv</exec_depend>
   <build_depend>opencv4</build_depend>
   <build_export_depend>opencv4</build_export_depend>
   <exec_depend>opencv4</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
 
   <export>
     <build_type>ament_cmake</build_type>

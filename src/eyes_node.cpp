@@ -58,7 +58,7 @@ int main(int argc, char** argv){
     if(key == 'x') eyes.anim_confused();
 
     // window closed?
-    if(cv::getWindowProperty(win, cv::WND_PROP_VISIBLE) < 1) break;
+    //if(cv::getWindowProperty(win, cv::WND_PROP_VISIBLE) < 1) break;
 
     rate.sleep();
   }
