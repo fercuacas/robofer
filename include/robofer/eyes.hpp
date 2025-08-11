@@ -22,7 +22,7 @@ constexpr int BGCOLOR = 0;   // background/overlays
 constexpr int MAINCOLOR = 255; // drawings
 
 // Moods
-enum Mood : uint8_t { DEFAULT = 0, TIRED = 1, ANGRY = 2, HAPPY = 3 };
+enum Mood : uint8_t { DEFAULT = 0, TIRED = 1, ANGRY = 2, HAPPY = 3, FROWN = 4 };
 
 // Predefined positions
 enum Pos : uint8_t { CENTER=0, N=1, NE=2, E=3, SE=4, S=5, SW=6, W=7, NW=8 };
@@ -49,8 +49,8 @@ public:
   void setMood(Mood m);
   void setPosition(Pos p);
 
-  void setAutoblinker(bool active, int interval_s=1, int variation_s=4);
-  void setIdle(bool active, int interval_s=1, int variation_s=3);
+  void setAutoblinker(bool active, int interval_s, int variation_s);
+  void setIdle(bool active, int interval_s, int variation_s);
   void setCurious(bool on) { curious_ = on; }
   void setCyclops(bool on) { cyclops_ = on; }
 
@@ -63,6 +63,36 @@ public:
   void anim_confused();
   void anim_laugh();
 
+  // === Aliases con los nombres de la librería original ===
+  void setWidth(int leftEye, int rightEye);
+  void setHeight(int leftEye, int rightEye);
+  void setBorderradius(int leftEye, int rightEye);
+  void setSpacebetween(int space);
+  void setCuriosity(bool curiousBit) { setCurious(curiousBit); }
+
+  // === Overloads “cómodos” ===
+  void setAutoblinker(bool active);                 // usa valores actuales de s/var
+  void setIdle(bool active);                        // usa valores actuales de s/var
+
+  // === Control por ojo ===
+  void close();                                     // ambos
+  void open();                                      // ambos
+  void blink();                                     // ambos
+  void close(bool left, bool right);
+  void open(bool left, bool right);
+  void blink(bool left, bool right);
+
+  // === Flickers directos ===
+  void setHFlicker(bool flickerBit, int amplitude);
+  void setHFlicker(bool flickerBit);                // mantiene amp actual
+  void setVFlicker(bool flickerBit, int amplitude);
+  void setVFlicker(bool flickerBit);                // mantiene amp actual
+
+  // === Getters con el nombre original ===
+  int getScreenConstraint_X() const;
+  int getScreenConstraint_Y() const;
+    uint64_t frownFlickerLastChange_ = 0;
+  int frownFlickerIntervalMs_ = 100; // cambia cada 100ms (~10 Hz)
 private:
   // time helpers
   static uint64_t now_ms();
@@ -92,6 +122,7 @@ private:
 
   // mood flags
   bool tired_=false, angry_=false, happy_=false;
+  bool frown_=false; // <— ceño fruncido
   bool curious_=false; // outer eye grows when looking sideways
   bool cyclops_=false; // single eye
   bool eyeL_open_=false, eyeR_open_=false;
@@ -100,6 +131,8 @@ private:
   int spaceBetweenDefault_=10;
   int spaceBetweenCurrent_=10;
   int spaceBetweenNext_=10;
+
+
 
   int eyeL_w_def_=36, eyeL_h_def_=36;
   int eyeL_w_cur_=36, eyeL_h_cur_=1; // start closed
@@ -128,6 +161,8 @@ private:
   int eyelidsTiredH_=0, eyelidsTiredH_next_=0;
   int eyelidsAngryH_=0, eyelidsAngryH_next_=0;
   int eyelidsHappyBottomOffset_=0, eyelidsHappyBottomOffset_next_=0;
+  int eyelidsFrownH_=0, eyelidsFrownH_next_=0; // <— profundidad del ceño
+
 
   // macro animations
   bool hFlicker_=false, hFlickerAlt_=false; int hFlickAmp_=2;
