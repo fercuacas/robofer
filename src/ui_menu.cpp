@@ -1,0 +1,153 @@
+#include "robofer/ui_menu.hpp"
+#include <opencv2/imgproc.hpp>
+#include <algorithm>
+
+namespace robo_ui {
+
+MenuController::Item MenuController::build_default_tree(){
+  Item root; root.label = "Menu"; root.is_submenu = true;
+
+  Item modos; modos.label = "Modos"; modos.is_submenu = true;
+  modos.children.push_back({"Angry", false, MenuAction::SET_ANGRY, {}});
+  modos.children.push_back({"Sad",   false, MenuAction::SET_SAD,   {}});
+  modos.children.push_back({"Happy", false, MenuAction::SET_HAPPY, {}});
+
+  Item wifi; wifi.label = "Wi-Fi"; wifi.is_submenu = true;
+
+  Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
+
+  root.children = {modos, wifi, apagar};
+  return root;
+}
+
+MenuController::MenuController(std::function<void(MenuAction)> on_action)
+  : on_action_(std::move(on_action)) {
+  root_ = build_default_tree();
+  last_key_time_ = clock::now() - std::chrono::hours(1);
+}
+
+void MenuController::set_timeout_ms(int ms){ timeout_ms_ = std::max(0, ms); }
+void MenuController::set_font_scale(double s){ font_scale_ = std::clamp(s, 0.2, 2.0); }
+
+bool MenuController::is_active() const {
+  auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - last_key_time_).count();
+  return dt < timeout_ms_;
+}
+
+void MenuController::on_key(UiKey key){
+  last_key_time_ = clock::now();
+  switch(key){
+    case UiKey::UP:   up();   break;
+    case UiKey::DOWN: down(); break;
+    case UiKey::BACK: back(); break;
+    case UiKey::OK:   enter(); break;
+  }
+}
+
+void MenuController::draw(cv::Mat& canvas){
+  if(!is_active()) return;
+  draw_panel(canvas);
+}
+
+const MenuController::Item* MenuController::current_menu() const {
+  const Item* cur = &root_;
+  for(int idx : path_){
+    if(idx < 0 || idx >= (int)cur->children.size()) return &root_;
+    cur = &cur->children[idx];
+  }
+  return cur;
+}
+
+MenuController::Item* MenuController::current_menu(){
+  Item* cur = &root_;
+  for(int idx : path_){
+    if(idx < 0 || idx >= (int)cur->children.size()) return &root_;
+    cur = &cur->children[idx];
+  }
+  return cur;
+}
+
+void MenuController::up(){
+  const Item* menu = current_menu();
+  if(menu->children.empty()) return;
+  sel_ = (sel_ - 1 + (int)menu->children.size()) % (int)menu->children.size();
+}
+
+void MenuController::down(){
+  const Item* menu = current_menu();
+  if(menu->children.empty()) return;
+  sel_ = (sel_ + 1) % (int)menu->children.size();
+}
+
+void MenuController::back(){
+  if(!path_.empty()){
+    path_.pop_back();
+    sel_ = 0;
+  }
+}
+
+void MenuController::enter(){
+  Item* menu = current_menu();
+  if(menu->children.empty()) return;
+  Item& it = menu->children[sel_];
+  if(it.is_submenu){
+    path_.push_back(sel_);
+    sel_ = 0;
+  } else {
+    dispatch(it.action);
+  }
+}
+
+void MenuController::dispatch(MenuAction a){
+  if(on_action_) on_action_(a);
+}
+
+void MenuController::draw_panel(cv::Mat& canvas){
+  const int W = canvas.cols, H = canvas.rows;
+  const int pad = std::max(4, W/64);
+  const int panel_w = std::min(W - 2*pad, std::max(80, W*3/5));
+  const int panel_h = std::min(H - 2*pad, std::max(60, H*3/5));
+  const int x = pad, y = pad;
+
+  cv::Mat roi = canvas(cv::Rect(x, y, panel_w, panel_h));
+  roi = cv::max(roi, 40);
+
+  cv::rectangle(canvas, cv::Rect(x, y, panel_w, panel_h), cv::Scalar(200), 1, cv::LINE_8);
+
+  const Item* menu = current_menu();
+  draw_header(canvas, menu->label, x, y, panel_w);
+
+  int line_h = std::max(12, H/14);
+  draw_items(canvas, menu->children, x, y + line_h + 4, panel_w, line_h);
+}
+
+void MenuController::draw_header(cv::Mat& img, const std::string& title, int x, int y, int w){
+  int baseline=0;
+  cv::Size sz = cv::getTextSize(title, cv::FONT_HERSHEY_SIMPLEX, font_scale_, 1, &baseline);
+  int tx = x + 6;
+  int ty = y + sz.height + 6;
+  cv::rectangle(img, cv::Rect(x+1, y+1, w-2, sz.height + 10), cv::Scalar(200), cv::FILLED);
+  cv::putText(img, title, cv::Point(tx, ty), cv::FONT_HERSHEY_SIMPLEX, font_scale_, cv::Scalar(0), 1, cv::LINE_8);
+}
+
+void MenuController::draw_items(cv::Mat& img, const std::vector<Item>& items, int x, int y, int w, int line_h){
+  for(int i=0;i<(int)items.size();++i){
+    const auto& it = items[i];
+    int row_y = y + i*line_h;
+    bool sel = (i==sel_);
+    if(sel){
+      cv::rectangle(img, cv::Rect(x+2, row_y, w-4, line_h-2), cv::Scalar(200), cv::FILLED);
+    }
+    std::string text = it.label;
+    if(it.is_submenu) text += " >";
+    int baseline=0;
+    cv::Size sz = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, font_scale_, 1, &baseline);
+    int tx = x + 8;
+    int ty = row_y + std::min(line_h-4, sz.height + 6);
+    cv::putText(img, text, cv::Point(tx, ty), cv::FONT_HERSHEY_SIMPLEX, font_scale_,
+                sel ? cv::Scalar(0) : cv::Scalar(255), 1, cv::LINE_8);
+  }
+}
+
+} // namespace robo_ui
+
