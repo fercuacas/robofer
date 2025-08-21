@@ -87,6 +87,7 @@ target_link_libraries(robo_eyes_st7735_node
 # 3.3) Nodo unificado (elige backend por parámetro: sim | st7735)
 add_executable(eyes_unified_node
   src/eyes_unified_node.cpp
+  src/ui_menu.cpp
 )
 ament_target_dependencies(eyes_unified_node rclcpp std_msgs)
 target_link_libraries(eyes_unified_node
@@ -94,6 +95,19 @@ target_link_libraries(eyes_unified_node
   robo_display
   ${OpenCV_LIBS}
 )
+
+# --- Botones físicos ---
+add_executable(buttons_node
+  src/buttons.cpp
+)
+ament_target_dependencies(buttons_node rclcpp std_msgs)
+target_link_libraries(buttons_node gpiod)
+
+# --- Botones por teclado (simulación) ---
+add_executable(keyboard_buttons_node
+  src/keyboard_buttons.cpp
+)
+ament_target_dependencies(keyboard_buttons_node rclcpp std_msgs)
 
 # =========================================
 # 4) Instalación
@@ -116,12 +130,19 @@ install(TARGETS
   robo_eyes_sim
   robo_eyes_st7735_node
   eyes_unified_node
+  buttons_node
+  keyboard_buttons_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
 # Headers
 install(DIRECTORY include/
   DESTINATION include
+)
+
+# Launch files
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
 )
 
 # =========================================
