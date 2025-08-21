@@ -4,30 +4,43 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch.conditions import IfCondition, UnlessCondition
 
+
 def generate_launch_description():
+    # Flags / parámetros compartidos
     sim = LaunchConfiguration('sim')
 
-    eyes_width  = LaunchConfiguration('eyes_width')
+    eyes_width = LaunchConfiguration('eyes_width')
     eyes_height = LaunchConfiguration('eyes_height')
-    fps         = LaunchConfiguration('fps')
+    fps = LaunchConfiguration('fps')
     menu_timeout_ms = LaunchConfiguration('menu_timeout_ms')
 
-    spi_device  = LaunchConfiguration('spi_device')
-    spi_hz      = LaunchConfiguration('spi_hz')
+    # HW (solo si sim:=false)
+    spi_device = LaunchConfiguration('spi_device')
+    spi_hz = LaunchConfiguration('spi_hz')
     use_manual_cs = LaunchConfiguration('use_manual_cs')
-    gpiochip_c  = LaunchConfiguration('gpiochip_c')
-    dc_offset   = LaunchConfiguration('dc_offset')
-    rst_offset  = LaunchConfiguration('rst_offset')
-    cs_offset   = LaunchConfiguration('cs_offset')
-    spi_chunk   = LaunchConfiguration('spi_chunk')
-    madctl      = LaunchConfiguration('madctl')
-    invert      = LaunchConfiguration('invert')
-    self_test   = LaunchConfiguration('self_test')
+    gpiochip_c = LaunchConfiguration('gpiochip_c')
+    dc_offset = LaunchConfiguration('dc_offset')
+    rst_offset = LaunchConfiguration('rst_offset')
+    cs_offset = LaunchConfiguration('cs_offset')
+    spi_chunk = LaunchConfiguration('spi_chunk')
+    madctl = LaunchConfiguration('madctl')
+    invert = LaunchConfiguration('invert')
+    self_test = LaunchConfiguration('self_test')
 
+    # Botones HW
     btn1_offset = LaunchConfiguration('btn1_offset')
     btn2_offset = LaunchConfiguration('btn2_offset')
     btn3_offset = LaunchConfiguration('btn3_offset')
     btn4_offset = LaunchConfiguration('btn4_offset')
+
+    # Teclado (solo sim)
+    key_up = LaunchConfiguration('key_up')
+    key_down = LaunchConfiguration('key_down')
+    key_back = LaunchConfiguration('key_back')
+    key_ok = LaunchConfiguration('key_ok')
+    repeat_ms = LaunchConfiguration('repeat_ms')
+
+    # ========= NODOS =========
 
     eyes_node_sim = Node(
         package='robofer',
@@ -40,7 +53,8 @@ def generate_launch_description():
             'eyes_height': eyes_height,
             'fps': fps,
             'menu_timeout_ms': menu_timeout_ms,
-        }]
+        }],
+        condition=IfCondition(sim),
     )
 
     eyes_node_hw = Node(
@@ -65,7 +79,8 @@ def generate_launch_description():
             'madctl': madctl,
             'invert': invert,
             'self_test': self_test,
-        }]
+        }],
+        condition=UnlessCondition(sim),
     )
 
     keyboard_node = Node(
@@ -74,12 +89,13 @@ def generate_launch_description():
         name='keyboard_buttons_node',
         output='screen',
         parameters=[{
-            'key_up': 'w',
-            'key_down': 's',
-            'key_back': 'a',
-            'key_ok': 'd',
-            'repeat_ms': 0,
-        }]
+            'key_up': key_up,
+            'key_down': key_down,
+            'key_back': key_back,
+            'key_ok': key_ok,
+            'repeat_ms': repeat_ms,
+        }],
+        condition=IfCondition(sim),
     )
 
     buttons_node = Node(
@@ -95,15 +111,18 @@ def generate_launch_description():
             'btn2_offset': btn2_offset,
             'btn3_offset': btn3_offset,
             'btn4_offset': btn4_offset,
-            'btn1_code': 0,
-            'btn2_code': 1,
-            'btn3_code': 2,
-            'btn4_code': 3,
-        }]
+            'btn1_code': 0,  # UP
+            'btn2_code': 1,  # DOWN
+            'btn3_code': 2,  # BACK
+            'btn4_code': 3,  # OK
+        }],
+        condition=UnlessCondition(sim),
     )
 
+    # ========= LAUNCH DESCRIPTION =========
     ld = LaunchDescription()
 
+    # Args
     ld.add_action(DeclareLaunchArgument('sim', default_value='true'))
 
     ld.add_action(DeclareLaunchArgument('eyes_width', default_value='128'))
@@ -111,6 +130,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument('fps', default_value='30'))
     ld.add_action(DeclareLaunchArgument('menu_timeout_ms', default_value='5000'))
 
+    # HW
     ld.add_action(DeclareLaunchArgument('spi_device', default_value='/dev/spidev1.0'))
     ld.add_action(DeclareLaunchArgument('spi_hz', default_value='24000000'))
     ld.add_action(DeclareLaunchArgument('use_manual_cs', default_value='true'))
@@ -123,20 +143,23 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument('invert', default_value='false'))
     ld.add_action(DeclareLaunchArgument('self_test', default_value='true'))
 
+    # HW botones
     ld.add_action(DeclareLaunchArgument('btn1_offset', default_value='-1'))
     ld.add_action(DeclareLaunchArgument('btn2_offset', default_value='-1'))
     ld.add_action(DeclareLaunchArgument('btn3_offset', default_value='-1'))
     ld.add_action(DeclareLaunchArgument('btn4_offset', default_value='-1'))
 
-    eyes_node_sim.condition = IfCondition(sim)
-    eyes_node_hw.condition = UnlessCondition(sim)
-    keyboard_node.condition = IfCondition(sim)
-    buttons_node.condition = UnlessCondition(sim)
+    # Teclado sim
+    ld.add_action(DeclareLaunchArgument('key_up', default_value='w'))
+    ld.add_action(DeclareLaunchArgument('key_down', default_value='s'))
+    ld.add_action(DeclareLaunchArgument('key_back', default_value='a'))
+    ld.add_action(DeclareLaunchArgument('key_ok', default_value='d'))
+    ld.add_action(DeclareLaunchArgument('repeat_ms', default_value='0'))
 
+    # Nodos
     ld.add_action(eyes_node_sim)
     ld.add_action(eyes_node_hw)
     ld.add_action(keyboard_node)
     ld.add_action(buttons_node)
 
     return ld
-
