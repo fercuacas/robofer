@@ -3,6 +3,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <mutex>
+#include <algorithm>
 
 #include "robofer/eyes.hpp"
 #include "robofer/display.hpp"
@@ -72,7 +73,6 @@ int main(int argc, char** argv){
   ActionDispatcher dispatch{ log, eyes };
   MenuController   menu([&](MenuAction a){ dispatch(a); });
   menu.set_timeout_ms(menu_timeout_ms);
-  menu.set_font_scale(0.45);
 
   std::mutex ui_mtx;
   auto sub_ui = node->create_subscription<std_msgs::msg::Int32>(
@@ -90,6 +90,7 @@ int main(int argc, char** argv){
 
   int DW = display->width();   if(DW <= 0) DW = eyes_w;
   int DH = display->height();  if(DH <= 0) DH = eyes_h;
+  menu.set_font_scale(std::clamp(DH / 100.0, 0.4, 1.0));
   cv::Mat canvas(DH, DW, CV_8UC1, cv::Scalar(0));
 
   while(rclcpp::ok()){

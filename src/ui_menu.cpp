@@ -107,17 +107,18 @@ void MenuController::draw_panel(cv::Mat& canvas){
   const int pad = std::max(4, W/64);
   const int panel_w = std::min(W - 2*pad, std::max(80, W*3/5));
   const int panel_h = std::min(H - 2*pad, std::max(60, H*3/5));
-  const int x = pad, y = pad;
+  const int x = (W - panel_w) / 2;
+  const int y = (H - panel_h) / 2;
 
   cv::Mat roi = canvas(cv::Rect(x, y, panel_w, panel_h));
-  roi = cv::max(roi, 40);
+  roi.setTo(cv::Scalar(40));
 
   cv::rectangle(canvas, cv::Rect(x, y, panel_w, panel_h), cv::Scalar(200), 1, cv::LINE_8);
 
   const Item* menu = current_menu();
   draw_header(canvas, menu->label, x, y, panel_w);
 
-  int line_h = std::max(12, H/14);
+  int line_h = std::max(12, panel_h / ((int)menu->children.size() + 2));
   draw_items(canvas, menu->children, x, y + line_h + 4, panel_w, line_h);
 }
 
