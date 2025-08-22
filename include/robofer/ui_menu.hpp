@@ -44,6 +44,7 @@ private:
   // navegación
   std::vector<int> path_;
   int sel_{0};
+  int offset_{0};
   const Item* current_menu() const;
   Item* current_menu();
 
@@ -56,7 +57,8 @@ private:
   // dibujo
   void draw_panel(cv::Mat& canvas);
   void draw_header(cv::Mat& img, const std::string& title, int x, int y, int w);
-  void draw_items(cv::Mat& img, const std::vector<Item>& items, int x, int y, int w, int line_h);
+  void draw_items(cv::Mat& img, const std::vector<Item>& items, int x, int y,
+                  int w, int line_h, int start, int max_items);
 
   Item root_;
   std::function<void(MenuAction)> on_action_;
