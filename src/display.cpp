@@ -357,7 +357,7 @@ private:
   GpioLine dc_, rst_, cs_;
 };
 
-std::unique_ptr<Display> make_display(const std::string& backend){
+std::unique_ptr<Display> makeDisplay(const std::string& backend){
   if(backend == "sim")     return std::make_unique<DisplaySim>();
   if(backend == "st7735")  return std::make_unique<DisplayST7735>();
   // por defecto, sim para que funcione en PC

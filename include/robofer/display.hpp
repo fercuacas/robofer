@@ -20,6 +20,7 @@ public:
 };
 
 // Fábrica: backend="sim" | "st7735"
-std::unique_ptr<Display> make_display(const std::string& backend);
+// Crea el backend de salida de vídeo correspondiente.
+std::unique_ptr<Display> makeDisplay(const std::string& backend);
 
 } // namespace robo_eyes
