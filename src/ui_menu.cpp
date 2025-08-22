@@ -104,9 +104,36 @@ void MenuController::dispatch(MenuAction a){
 
 void MenuController::draw_panel(cv::Mat& canvas){
   const int W = canvas.cols, H = canvas.rows;
+  const Item* menu = current_menu();
+
+  // Determine width based on longest label
+  int baseline = 0;
+  int max_w = cv::getTextSize(menu->label, cv::FONT_HERSHEY_SIMPLEX,
+                              font_scale_, 1, &baseline).width;
+  for(const auto& it : menu->children){
+    std::string txt = it.label;
+    if(it.is_submenu) txt += " >";
+    int w = cv::getTextSize(txt, cv::FONT_HERSHEY_SIMPLEX, font_scale_,
+                            1, &baseline).width;
+    max_w = std::max(max_w, w);
+  }
+
   const int pad = std::max(4, W/64);
-  const int panel_w = std::min(W - 2*pad, std::max(80, W*3/5));
-  const int panel_h = std::min(H - 2*pad, std::max(60, H*3/5));
+  const int panel_w = std::min(W - 2*pad, std::max(max_w + 16, W*3/5));
+
+  // Determine line height from font size
+  cv::Size sample_sz = cv::getTextSize("Ag", cv::FONT_HERSHEY_SIMPLEX,
+                                      font_scale_, 1, &baseline);
+  const int line_h = std::max(12, sample_sz.height + baseline + 8);
+
+  // Header height and total panel height
+  cv::Size title_sz = cv::getTextSize(menu->label, cv::FONT_HERSHEY_SIMPLEX,
+                                      font_scale_, 1, &baseline);
+  const int header_h = title_sz.height + 10;
+  const int max_visible = std::max(1, (H - 2*pad - header_h - 8) / line_h);
+  const int visible = std::min(max_visible, (int)menu->children.size());
+  const int panel_h = header_h + visible * line_h + 8;
+
   const int x = (W - panel_w) / 2;
   const int y = (H - panel_h) / 2;
 
@@ -115,11 +142,14 @@ void MenuController::draw_panel(cv::Mat& canvas){
 
   cv::rectangle(canvas, cv::Rect(x, y, panel_w, panel_h), cv::Scalar(200), 1, cv::LINE_8);
 
-  const Item* menu = current_menu();
   draw_header(canvas, menu->label, x, y, panel_w);
 
-  int line_h = std::max(12, panel_h / ((int)menu->children.size() + 2));
-  draw_items(canvas, menu->children, x, y + line_h + 4, panel_w, line_h);
+  // Update offset to keep selection visible
+  if(sel_ < offset_) offset_ = sel_;
+  if(sel_ >= offset_ + visible) offset_ = sel_ - visible + 1;
+  offset_ = std::clamp(offset_, 0, std::max(0, (int)menu->children.size() - visible));
+
+  draw_items(canvas, menu->children, x, y + header_h + 4, panel_w, line_h, offset_, visible);
 }
 
 void MenuController::draw_header(cv::Mat& img, const std::string& title, int x, int y, int w){
@@ -131,10 +161,12 @@ void MenuController::draw_header(cv::Mat& img, const std::string& title, int x, 
   cv::putText(img, title, cv::Point(tx, ty), cv::FONT_HERSHEY_SIMPLEX, font_scale_, cv::Scalar(0), 1, cv::LINE_8);
 }
 
-void MenuController::draw_items(cv::Mat& img, const std::vector<Item>& items, int x, int y, int w, int line_h){
-  for(int i=0;i<(int)items.size();++i){
+void MenuController::draw_items(cv::Mat& img, const std::vector<Item>& items, int x, int y,
+                                int w, int line_h, int start, int max_items){
+  for(int row=0; row<max_items && start+row<(int)items.size(); ++row){
+    int i = start + row;
     const auto& it = items[i];
-    int row_y = y + i*line_h;
+    int row_y = y + row*line_h;
     bool sel = (i==sel_);
     if(sel){
       cv::rectangle(img, cv::Rect(x+2, row_y, w-4, line_h-2), cv::Scalar(200), cv::FILLED);
