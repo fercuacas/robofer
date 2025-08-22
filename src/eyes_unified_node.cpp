@@ -17,25 +17,26 @@ using robo_ui::UiKey;
 
 static const char* NODE_NAME = "robo_eyes";
 
+// Despacha las acciones del menú hacia la lógica de ojos.
 struct ActionDispatcher {
-  rclcpp::Logger log;
-  RoboEyes& eyes;
+  rclcpp::Logger log_;
+  RoboEyes& eyes_;
   void operator()(MenuAction a){
     switch(a){
       case MenuAction::SET_ANGRY:
-        eyes.setMood(Mood::ANGRY);
-        RCLCPP_INFO(log, "MenuAction: ANGRY");
+        eyes_.setMood(Mood::ANGRY);
+        RCLCPP_INFO(log_, "MenuAction: ANGRY");
         break;
       case MenuAction::SET_SAD:
-        eyes.setMood(Mood::FROWN);
-        RCLCPP_INFO(log, "MenuAction: SAD(FROWN)");
+        eyes_.setMood(Mood::FROWN);
+        RCLCPP_INFO(log_, "MenuAction: SAD(FROWN)");
         break;
       case MenuAction::SET_HAPPY:
-        eyes.setMood(Mood::HAPPY);
-        RCLCPP_INFO(log, "MenuAction: HAPPY");
+        eyes_.setMood(Mood::HAPPY);
+        RCLCPP_INFO(log_, "MenuAction: HAPPY");
         break;
       case MenuAction::POWEROFF:
-        RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
+        RCLCPP_WARN(log_, "MenuAction: POWEROFF (llamando a sudo poweroff)");
         std::system("sudo poweroff &");
         break;
       case MenuAction::NONE:
@@ -56,7 +57,7 @@ int main(int argc, char** argv){
   const int   fps     = node->declare_parameter<int>("fps", 30);
   const int   menu_timeout_ms = node->declare_parameter<int>("menu_timeout_ms", 5000);
 
-  auto display = robo_eyes::make_display(backend);
+  auto display = robo_eyes::makeDisplay(backend);
   if(!display->init(*node)){
     RCLCPP_FATAL(log, "Display init failed (backend=%s).", backend.c_str());
     return 1;
@@ -79,19 +80,19 @@ int main(int argc, char** argv){
     "/ui/button", 10,
     [&](const std_msgs::msg::Int32::SharedPtr msg){
       std::lock_guard<std::mutex> lk(ui_mtx);
-      int v = msg->data;
-      if(v < 0 || v > 3) return;
-      menu.on_key(static_cast<UiKey>(v));
+      int key_value = msg->data;
+      if(key_value < 0 || key_value > 3) return;
+      menu.on_key(static_cast<UiKey>(key_value));
     });
 
   rclcpp::Rate rate(fps);
   RCLCPP_INFO(log, "Eyes+Menu @ %d FPS, backend=%s, display=%dx%d, eyes=%dx%d",
               fps, backend.c_str(), display->width(), display->height(), eyes_w, eyes_h);
 
-  int DW = display->width();   if(DW <= 0) DW = eyes_w;
-  int DH = display->height();  if(DH <= 0) DH = eyes_h;
-  menu.set_font_scale(std::clamp(DH / 100.0, 0.4, 1.0));
-  cv::Mat canvas(DH, DW, CV_8UC1, cv::Scalar(0));
+  int display_w = display->width();   if(display_w <= 0) display_w = eyes_w;
+  int display_h = display->height();  if(display_h <= 0) display_h = eyes_h;
+  menu.set_font_scale(std::clamp(display_h / 100.0, 0.4, 1.0));
+  cv::Mat canvas(display_h, display_w, CV_8UC1, cv::Scalar(0));
 
   while(rclcpp::ok()){
     rclcpp::spin_some(node);
@@ -100,9 +101,11 @@ int main(int argc, char** argv){
     const cv::Mat& m = eyes.frame();
 
     canvas.setTo(cv::Scalar(0));
-    int ox = std::max(0, (DW - m.cols)/2);
-    int oy = std::max(0, (DH - m.rows)/2);
-    cv::Rect roi(ox, oy, std::min(m.cols, DW-ox), std::min(m.rows, DH-oy));
+    int offset_x = std::max(0, (display_w - m.cols)/2);
+    int offset_y = std::max(0, (display_h - m.rows)/2);
+    cv::Rect roi(offset_x, offset_y,
+                std::min(m.cols, display_w-offset_x),
+                std::min(m.rows, display_h-offset_y));
     if(roi.width > 0 && roi.height > 0){
       m(cv::Rect(0,0,roi.width,roi.height)).copyTo(canvas(roi));
     }
