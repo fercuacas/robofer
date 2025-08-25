@@ -1,7 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <std_msgs/msg/empty.hpp>
-#include <std_msgs/msg/uint8.hpp>
+#include <std_msgs/msg/u_int8.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <mutex>

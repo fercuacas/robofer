@@ -15,15 +15,14 @@ ControlServo::ControlServo(rclcpp::Node *node,
   if(node) {
     angle_pub_ = node->create_publisher<robofer::msg::ServoGoal>("servo_angles", 10);
   }
-  servos_.resize(2);
-  for(int i=0;i<2;i++){
-    servos_[i].id = i;
+  for(size_t i = 0; i < servos_.size(); ++i){
+    servos_[i].id = static_cast<int>(i);
   }
   if(!sim_){
     chip_ = gpiod_chip_open_by_name(chip_name.c_str());
     if(!chip_) throw std::runtime_error("gpiod_chip_open_by_name failed");
     int offs[2] = {s1, s2};
-    for(int i=0;i<2;i++){
+    for(size_t i = 0; i < servos_.size(); ++i){
       if(offs[i] < 0) continue;
       servos_[i].line = gpiod_chip_get_line(chip_, offs[i]);
       if(!servos_[i].line) throw std::runtime_error("gpiod_chip_get_line failed");
