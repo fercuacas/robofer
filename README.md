@@ -176,6 +176,21 @@ ros2 launch robofer eyes_system.launch.py sim:=true fps:=60
 
 Ventana OpenCV con los ojos; el menú es visible al pulsar `w`, `a`, `s`, `d`.
 
+### Simulación completa (ojos + máquina de estados)
+
+Lanza ojos y máquina de estados en modo simulado. El nodo de teclado se
+ejecuta aparte.
+
+```bash
+ros2 launch robofer robofer_sim.launch.py
+```
+
+En otra terminal:
+
+```bash
+ros2 run robofer keyboard_buttons_node
+```
+
 ### Hardware real (ST7735 + TTP223)
 
 ```bash
