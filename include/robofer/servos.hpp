@@ -4,7 +4,7 @@
 #include <thread>
 #include <atomic>
 #include <string>
-#include <vector>
+#include <array>
 
 #include <rclcpp/rclcpp.hpp>
 #include "robofer/msg/servo_goal.hpp"
@@ -45,7 +45,7 @@ private:
   };
 
   gpiod_chip *chip_{nullptr};
-  std::vector<Servo> servos_;
+  std::array<Servo, 2> servos_;
   bool sim_{false};
   rclcpp::Publisher<robofer::msg::ServoGoal>::SharedPtr angle_pub_;
 
