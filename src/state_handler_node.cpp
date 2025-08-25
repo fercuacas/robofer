@@ -13,8 +13,8 @@ public:
   void on_enter(StateHandler &ctx) override {
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::HAPPY);
     ctx.mood_pub_->publish(msg);
-    ctx.servos_.set_speed(0, 90.0f);
-    ctx.servos_.set_speed(1,-90.0f);
+    ctx.servos_.set_speed(0, 360.0f);
+    ctx.servos_.set_speed(1,-360.0f);
   }
 };
 
@@ -46,9 +46,11 @@ using robofer::StateHandler;
 
 StateHandler::StateHandler()
 : Node("state_handler"),
-  servos_(declare_parameter<std::string>("gpiochip", "gpiochip0"),
+  servos_(this,
+          declare_parameter<std::string>("gpiochip", "gpiochip0"),
           declare_parameter<int>("servo1_offset", -1),
-          declare_parameter<int>("servo2_offset", -1))
+          declare_parameter<int>("servo2_offset", -1),
+          declare_parameter<bool>("sim", false))
 {
   mood_pub_ = create_publisher<std_msgs::msg::UInt8>("/eyes/mood", 10);
   mode_sub_ = create_subscription<std_msgs::msg::UInt8>(
