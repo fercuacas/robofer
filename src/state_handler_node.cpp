@@ -11,6 +11,7 @@ namespace robofer {
 class StateHandler::HappyState : public StateHandler::State {
 public:
   void on_enter(StateHandler &ctx) override {
+    RCLCPP_INFO(ctx.get_logger(), "Entering HAPPY state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::HAPPY);
     ctx.mood_pub_->publish(msg);
     ctx.servos_.set_speed(0, 360.0f);
@@ -21,6 +22,7 @@ public:
 class StateHandler::AngryState : public StateHandler::State {
 public:
   void on_enter(StateHandler &ctx) override {
+    RCLCPP_INFO(ctx.get_logger(), "Entering ANGRY state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::ANGRY);
     ctx.mood_pub_->publish(msg);
     ctx.servos_.move_to(0, 30.0f, 120.0f);
@@ -31,6 +33,7 @@ public:
 class StateHandler::SadState : public StateHandler::State {
 public:
   void on_enter(StateHandler &ctx) override {
+    RCLCPP_INFO(ctx.get_logger(), "Entering SAD state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::FROWN);
     ctx.mood_pub_->publish(msg);
     ctx.servos_.set_idle(0);
@@ -52,6 +55,8 @@ StateHandler::StateHandler()
           declare_parameter<int>("servo2_offset", -1),
           declare_parameter<bool>("sim", false))
 {
+  bool sim = get_parameter("sim").as_bool();
+  RCLCPP_INFO(get_logger(), "State handler starting (sim=%s)", sim ? "true" : "false");
   mood_pub_ = create_publisher<std_msgs::msg::UInt8>("/eyes/mood", 10);
   mode_sub_ = create_subscription<std_msgs::msg::UInt8>(
       "/mode", 10,
@@ -65,10 +70,13 @@ void StateHandler::update() {
 }
 
 void StateHandler::mode_callback(const std_msgs::msg::UInt8::SharedPtr msg) {
-  set_state(static_cast<Mood>(msg->data));
+  auto m = static_cast<Mood>(msg->data);
+  RCLCPP_INFO(get_logger(), "Received mode request: %u", static_cast<unsigned>(msg->data));
+  set_state(m);
 }
 
 void StateHandler::set_state(Mood m) {
+  RCLCPP_INFO(get_logger(), "Changing state to %u", static_cast<unsigned>(m));
   if (current_state_) current_state_->on_exit(*this);
   switch (m) {
     case Mood::HAPPY:

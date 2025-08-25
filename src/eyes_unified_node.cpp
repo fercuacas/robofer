@@ -1,6 +1,5 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
-#include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/u_int8.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -21,23 +20,24 @@ static const char* NODE_NAME = "robo_eyes";
 
 struct ActionDispatcher {
   rclcpp::Logger log;
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr pub_angry;
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr pub_sad;
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr pub_happy;
+  rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr mode_pub;
   void operator()(MenuAction a){
-    std_msgs::msg::Empty m;
+    std_msgs::msg::UInt8 m;
     switch(a){
       case MenuAction::SET_ANGRY:
-        pub_angry->publish(m);
-        RCLCPP_INFO(log, "MenuAction-> /mode/angry");
+        m.data = static_cast<uint8_t>(Mood::ANGRY);
+        mode_pub->publish(m);
+        RCLCPP_INFO(log, "MenuAction -> mode ANGRY");
         break;
       case MenuAction::SET_SAD:
-        pub_sad->publish(m);
-        RCLCPP_INFO(log, "MenuAction-> /mode/sad");
+        m.data = static_cast<uint8_t>(Mood::FROWN);
+        mode_pub->publish(m);
+        RCLCPP_INFO(log, "MenuAction -> mode SAD");
         break;
       case MenuAction::SET_HAPPY:
-        pub_happy->publish(m);
-        RCLCPP_INFO(log, "MenuAction-> /mode/happy");
+        m.data = static_cast<uint8_t>(Mood::HAPPY);
+        mode_pub->publish(m);
+        RCLCPP_INFO(log, "MenuAction -> mode HAPPY");
         break;
       case MenuAction::POWEROFF:
         RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
@@ -75,10 +75,8 @@ int main(int argc, char** argv){
   eyes.setCyclops(false);
   eyes.setMood(Mood::DEFAULT);
 
-  auto pub_angry = node->create_publisher<std_msgs::msg::Empty>("/mode/angry", 10);
-  auto pub_sad   = node->create_publisher<std_msgs::msg::Empty>("/mode/sad", 10);
-  auto pub_happy = node->create_publisher<std_msgs::msg::Empty>("/mode/happy", 10);
-  ActionDispatcher dispatch{ log, pub_angry, pub_sad, pub_happy };
+  auto mode_pub = node->create_publisher<std_msgs::msg::UInt8>("/mode", 10);
+  ActionDispatcher dispatch{ log, mode_pub };
   MenuController   menu([&](MenuAction a){ dispatch(a); });
   menu.set_timeout_ms(menu_timeout_ms);
 
