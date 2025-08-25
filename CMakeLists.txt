@@ -67,7 +67,10 @@ target_include_directories(robo_servos PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
+ament_target_dependencies(robo_servos rclcpp)
 target_link_libraries(robo_servos gpiod)
+rosidl_target_interfaces(robo_servos
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 # =========================================
 # 3) Ejecutables
@@ -130,6 +133,13 @@ target_link_libraries(state_handler_node
   robo_servos
 )
 
+add_executable(servo_monitor_node
+  src/servo_monitor_node.cpp
+)
+ament_target_dependencies(servo_monitor_node rclcpp)
+rosidl_target_interfaces(servo_monitor_node
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
 # =========================================
 # 4) Instalación
 #    - Librerías a lib/
@@ -155,6 +165,7 @@ install(TARGETS
   buttons_node
   keyboard_buttons_node
   state_handler_node
+  servo_monitor_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

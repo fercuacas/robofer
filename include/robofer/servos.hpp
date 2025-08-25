@@ -6,11 +6,18 @@
 #include <string>
 #include <vector>
 
+#include <rclcpp/rclcpp.hpp>
+#include "robofer/msg/servo_goal.hpp"
+
 namespace robo_servos {
 
 class ControlServo {
 public:
-  ControlServo(const std::string& chip_name, int servo1_offset, int servo2_offset);
+  ControlServo(rclcpp::Node *node,
+               const std::string &chip_name,
+               int servo1_offset,
+               int servo2_offset,
+               bool sim = false);
   ~ControlServo();
 
   // continuous speed in degrees per second (positive = clockwise)
@@ -27,7 +34,8 @@ public:
 
 private:
   struct Servo {
-    gpiod_line* line{nullptr};
+    int id{0};
+    gpiod_line *line{nullptr};
     std::thread th;
     std::atomic<bool> running{false};
     std::atomic<float> current_angle{0.0f};
@@ -36,10 +44,12 @@ private:
     std::atomic<bool> has_target{false};
   };
 
-  gpiod_chip* chip_{nullptr};
+  gpiod_chip *chip_{nullptr};
   std::vector<Servo> servos_;
+  bool sim_{false};
+  rclcpp::Publisher<robofer::msg::ServoGoal>::SharedPtr angle_pub_;
 
-  void thread_func(Servo& s);
+  void thread_func(Servo &s);
 };
 
 } // namespace robo_servos
