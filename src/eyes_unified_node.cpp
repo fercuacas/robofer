@@ -1,5 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
+#include <std_msgs/msg/empty.hpp>
+#include <std_msgs/msg/uint8.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <mutex>
@@ -19,20 +21,23 @@ static const char* NODE_NAME = "robo_eyes";
 
 struct ActionDispatcher {
   rclcpp::Logger log;
-  RoboEyes& eyes;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr pub_angry;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr pub_sad;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr pub_happy;
   void operator()(MenuAction a){
+    std_msgs::msg::Empty m;
     switch(a){
       case MenuAction::SET_ANGRY:
-        eyes.setMood(Mood::ANGRY);
-        RCLCPP_INFO(log, "MenuAction: ANGRY");
+        pub_angry->publish(m);
+        RCLCPP_INFO(log, "MenuAction-> /mode/angry");
         break;
       case MenuAction::SET_SAD:
-        eyes.setMood(Mood::FROWN);
-        RCLCPP_INFO(log, "MenuAction: SAD(FROWN)");
+        pub_sad->publish(m);
+        RCLCPP_INFO(log, "MenuAction-> /mode/sad");
         break;
       case MenuAction::SET_HAPPY:
-        eyes.setMood(Mood::HAPPY);
-        RCLCPP_INFO(log, "MenuAction: HAPPY");
+        pub_happy->publish(m);
+        RCLCPP_INFO(log, "MenuAction-> /mode/happy");
         break;
       case MenuAction::POWEROFF:
         RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
@@ -70,7 +75,10 @@ int main(int argc, char** argv){
   eyes.setCyclops(false);
   eyes.setMood(Mood::DEFAULT);
 
-  ActionDispatcher dispatch{ log, eyes };
+  auto pub_angry = node->create_publisher<std_msgs::msg::Empty>("/mode/angry", 10);
+  auto pub_sad   = node->create_publisher<std_msgs::msg::Empty>("/mode/sad", 10);
+  auto pub_happy = node->create_publisher<std_msgs::msg::Empty>("/mode/happy", 10);
+  ActionDispatcher dispatch{ log, pub_angry, pub_sad, pub_happy };
   MenuController   menu([&](MenuAction a){ dispatch(a); });
   menu.set_timeout_ms(menu_timeout_ms);
 
@@ -82,6 +90,12 @@ int main(int argc, char** argv){
       int v = msg->data;
       if(v < 0 || v > 3) return;
       menu.on_key(static_cast<UiKey>(v));
+    });
+
+  auto sub_mood = node->create_subscription<std_msgs::msg::UInt8>(
+    "/eyes/mood", 10,
+    [&](const std_msgs::msg::UInt8::SharedPtr msg){
+      eyes.setMood(static_cast<Mood>(msg->data));
     });
 
   rclcpp::Rate rate(fps);

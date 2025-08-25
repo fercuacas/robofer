@@ -58,6 +58,18 @@ target_link_libraries(robo_display
 )
 
 # =========================================
+# Servos library
+# =========================================
+add_library(robo_servos
+  src/servos.cpp
+)
+target_include_directories(robo_servos PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(robo_servos gpiod)
+
+# =========================================
 # 3) Ejecutables
 # =========================================
 
@@ -109,6 +121,15 @@ add_executable(keyboard_buttons_node
 )
 ament_target_dependencies(keyboard_buttons_node rclcpp std_msgs)
 
+# --- State handler (modes + servos) ---
+add_executable(state_handler_node
+  src/state_handler_node.cpp
+)
+ament_target_dependencies(state_handler_node rclcpp std_msgs)
+target_link_libraries(state_handler_node
+  robo_servos
+)
+
 # =========================================
 # 4) Instalación
 #    - Librerías a lib/
@@ -120,6 +141,7 @@ ament_target_dependencies(keyboard_buttons_node rclcpp std_msgs)
 install(TARGETS
   robo_eyes_lib
   robo_display
+  robo_servos
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -132,6 +154,7 @@ install(TARGETS
   eyes_unified_node
   buttons_node
   keyboard_buttons_node
+  state_handler_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -149,7 +172,7 @@ install(DIRECTORY launch
 # 5) Export para consumidores
 # =========================================
 ament_export_include_directories(include)
-ament_export_libraries(robo_eyes_lib robo_display)
+ament_export_libraries(robo_eyes_lib robo_display robo_servos)
 ament_export_dependencies(rclcpp OpenCV rosidl_default_runtime)
 
 ament_package()
