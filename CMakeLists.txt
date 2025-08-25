@@ -12,7 +12,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
-include_directories(include)
+include_directories(include ${OpenCV_INCLUDE_DIRS})
 
 # ---- Mensajes (si no los usas en los nodos, igualmente exportamos runtime) ----
 rosidl_generate_interfaces(${PROJECT_NAME}
