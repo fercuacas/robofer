@@ -6,6 +6,7 @@
 
 #include "robofer/servos.hpp"
 #include "robofer/eyes.hpp"
+#include "robofer/audio_player.hpp"
 
 namespace robofer {
 
@@ -38,6 +39,10 @@ private:
   void update();
 
   ControlServo servos_;
+  std::unique_ptr<robo_audio::AudioPlayer> audio_;
+  std::string happy_sound_;
+  std::string angry_sound_;
+  std::string sad_sound_;
   rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr mood_pub_;
   rclcpp::Subscription<std_msgs::msg::UInt8>::SharedPtr mode_sub_;
   rclcpp::TimerBase::SharedPtr timer_;

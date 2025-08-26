@@ -73,6 +73,17 @@ rosidl_target_interfaces(robo_servos
   ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 # =========================================
+# Audio library
+# =========================================
+add_library(robo_audio
+  src/audio_player.cpp
+)
+target_include_directories(robo_audio PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+# =========================================
 # 3) Ejecutables
 # =========================================
 
@@ -131,6 +142,7 @@ add_executable(state_handler_node
 ament_target_dependencies(state_handler_node rclcpp std_msgs)
 target_link_libraries(state_handler_node
   robo_servos
+  robo_audio
 )
 
 add_executable(servo_monitor_node
@@ -152,6 +164,7 @@ install(TARGETS
   robo_eyes_lib
   robo_display
   robo_servos
+  robo_audio
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -183,7 +196,7 @@ install(DIRECTORY launch
 # 5) Export para consumidores
 # =========================================
 ament_export_include_directories(include)
-ament_export_libraries(robo_eyes_lib robo_display robo_servos)
+ament_export_libraries(robo_eyes_lib robo_display robo_servos robo_audio)
 ament_export_dependencies(rclcpp OpenCV rosidl_default_runtime)
 
 ament_package()

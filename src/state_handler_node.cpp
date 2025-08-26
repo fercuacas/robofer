@@ -16,6 +16,8 @@ public:
     ctx.mood_pub_->publish(msg);
     ctx.servos_.set_speed(0, 360.0f);
     ctx.servos_.set_speed(1,-360.0f);
+    if(ctx.audio_ && !ctx.happy_sound_.empty())
+      ctx.audio_->play(ctx.happy_sound_);
   }
 };
 
@@ -27,6 +29,8 @@ public:
     ctx.mood_pub_->publish(msg);
     ctx.servos_.move_to(0, 30.0f, 120.0f);
     ctx.servos_.move_to(1,150.0f, 120.0f);
+    if(ctx.audio_ && !ctx.angry_sound_.empty())
+      ctx.audio_->play(ctx.angry_sound_);
   }
 };
 
@@ -38,6 +42,8 @@ public:
     ctx.mood_pub_->publish(msg);
     ctx.servos_.set_idle(0);
     ctx.servos_.set_idle(1);
+    if(ctx.audio_ && !ctx.sad_sound_.empty())
+      ctx.audio_->play(ctx.sad_sound_);
   }
 };
 
@@ -53,9 +59,15 @@ StateHandler::StateHandler()
           declare_parameter<std::string>("gpiochip", "gpiochip0"),
           declare_parameter<int>("servo1_offset", -1),
           declare_parameter<int>("servo2_offset", -1),
-          declare_parameter<bool>("sim", false))
+          declare_parameter<bool>("sim", false)),
+  audio_(nullptr)
 {
   bool sim = get_parameter("sim").as_bool();
+  audio_ = std::make_unique<robo_audio::AudioPlayer>(sim);
+  audio_->reindex();
+  happy_sound_ = declare_parameter<std::string>("happy_sound", "");
+  angry_sound_ = declare_parameter<std::string>("angry_sound", "");
+  sad_sound_ = declare_parameter<std::string>("sad_sound", "");
   RCLCPP_INFO(get_logger(), "State handler starting (sim=%s)", sim ? "true" : "false");
   mood_pub_ = create_publisher<std_msgs::msg::UInt8>("/eyes/mood", 10);
   mode_sub_ = create_subscription<std_msgs::msg::UInt8>(
@@ -77,6 +89,7 @@ void StateHandler::mode_callback(const std_msgs::msg::UInt8::SharedPtr msg) {
 
 void StateHandler::set_state(Mood m) {
   RCLCPP_INFO(get_logger(), "Changing state to %u", static_cast<unsigned>(m));
+  if (audio_) audio_->stop();
   if (current_state_) current_state_->on_exit(*this);
   switch (m) {
     case Mood::HAPPY:
