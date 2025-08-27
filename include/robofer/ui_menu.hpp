@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include <chrono>
+#include <future>
 
 namespace robo_ui {
 
@@ -162,6 +163,9 @@ private:
   int timeout_ms_{5000};
   double font_scale_{0.15};
 
+  std::future<std::pair<bool, std::string>> wifi_future_;
+  bool wifi_requested_{false};
+  
   using clock = std::chrono::steady_clock;
   clock::time_point last_key_time_;
 };

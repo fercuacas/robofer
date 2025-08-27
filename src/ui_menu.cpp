@@ -126,10 +126,25 @@ void MenuController::draw_panel(cv::Mat& canvas){
   Item* menu = current_menu();
 
   if(menu->label == "Wi-Fi" && menu->children.size() >= 2){
-    auto [connected, ssid] = query_wifi();
-    menu->children[0].label = std::string("Status: ") + (connected ? "Connected" : "Disconnected");
-    menu->children[0].color = connected ? cv::Scalar(0,255,0) : cv::Scalar(0,0,255);
-    menu->children[1].label = std::string("SSID: ") + (connected ? ssid : "-");
+       if(!wifi_requested_){
+      wifi_future_ = std::async(std::launch::async, query_wifi);
+      wifi_requested_ = true;
+    }
+
+    if(wifi_future_.valid()){
+      if(wifi_future_.wait_for(std::chrono::seconds(0)) == std::future_status::ready){
+        auto [connected, ssid] = wifi_future_.get();
+        menu->children[0].label = std::string("Status: ") + (connected ? "Connected" : "Disconnected");
+        menu->children[0].color = connected ? cv::Scalar(0,255,0) : cv::Scalar(0,0,255);
+        menu->children[1].label = std::string("SSID: ") + (connected ? ssid : "-");
+      } else {
+        menu->children[0].label = "Status: ...";
+        menu->children[1].label = "SSID: ...";
+      }
+    }
+  } else {
+    wifi_requested_ = false;
+    wifi_future_ = std::future<std::pair<bool, std::string>>();
   }
 
   // Determine width based on longest label
@@ -157,13 +172,12 @@ void MenuController::draw_panel(cv::Mat& canvas){
   cv::Size title_sz = cv::getTextSize(menu->label, cv::FONT_HERSHEY_SIMPLEX,
                                       font_scale_, 1, &baseline);
   const int header_h = title_sz.height + text_pad*2;
-  const int max_visible = std::max(1, (H - 2*outer_pad - header_h - text_pad) / line_h);
+  const int panel_h = H;
+  const int max_visible = std::max(1, (panel_h - header_h - text_pad) / line_h);  
   const int visible = std::min(max_visible, (int)menu->children.size());
-  const int panel_h = header_h + visible * line_h + text_pad;
 
   const int x = (W - panel_w) / 2;
-  const int y = (H - panel_h) / 2;
-
+  const int y = 0;
   cv::Mat roi = canvas(cv::Rect(x, y, panel_w, panel_h));
   roi.setTo(cv::Scalar(40,40,40));
 
