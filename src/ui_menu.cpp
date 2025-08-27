@@ -168,7 +168,7 @@ void MenuController::draw_panel(cv::Mat& canvas){
   roi.setTo(cv::Scalar(40,40,40));
 
   cv::rectangle(canvas, cv::Rect(x, y, panel_w, panel_h),
-                cv::Scalar(200,200,200), 1, cv::LINE_AA);
+                cv::Scalar(200,200,200), 1, cv::LINE_8);
 
   draw_header(canvas, menu->label, x, y, panel_w, text_pad);
 
@@ -188,7 +188,7 @@ void MenuController::draw_header(cv::Mat& img, const std::string& title, int x, 
   cv::rectangle(img, cv::Rect(x+1, y+1, w-2, sz.height + pad*2),
                 cv::Scalar(200,200,200), cv::FILLED);
   cv::putText(img, title, cv::Point(tx, ty), cv::FONT_HERSHEY_SIMPLEX,
-              font_scale_, cv::Scalar(0,0,0), 1, cv::LINE_AA);
+              font_scale_, cv::Scalar(0,0,0), 1, cv::LINE_8);
 }
 
 void MenuController::draw_items(cv::Mat& img, const std::vector<Item>& items, int x, int y,
@@ -209,7 +209,7 @@ void MenuController::draw_items(cv::Mat& img, const std::vector<Item>& items, in
     int tx = x + pad + 4;
     int ty = row_y + std::min(line_h - pad, sz.height + pad);
     cv::putText(img, text, cv::Point(tx, ty), cv::FONT_HERSHEY_SIMPLEX,
-                font_scale_, it.color, 1, cv::LINE_AA);
+                font_scale_, it.color, 1, cv::LINE_8);
   }
 }
 
