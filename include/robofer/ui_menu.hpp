@@ -63,7 +63,7 @@ public:
   void set_timeout_ms(int ms);
 
   /**
-   * @brief Set OpenCV font scale used for drawing (default 0.4).
+   * @brief Set OpenCV font scale used for drawing (default 0.15).
    * @param s Font scale factor.
    */
   void set_font_scale(double s);
@@ -141,7 +141,7 @@ private:
    * @param y Y coordinate.
    * @param w Width of header area.
    */
-  void draw_header(cv::Mat& img, const std::string& title, int x, int y, int w);
+  void draw_header(cv::Mat& img, const std::string& title, int x, int y, int w, int pad);
 
   /**
    * @brief Draw individual menu items.
@@ -155,12 +155,12 @@ private:
    * @param max_items Maximum number of items to draw.
    */
   void draw_items(cv::Mat& img, const std::vector<Item>& items, int x, int y,
-                  int w, int line_h, int start, int max_items);
+                   int w, int line_h, int start, int max_items, int pad);
 
   Item root_;
   std::function<void(MenuAction)> on_action_;
   int timeout_ms_{5000};
-  double font_scale_{0.45};
+  double font_scale_{0.15};
 
   using clock = std::chrono::steady_clock;
   clock::time_point last_key_time_;

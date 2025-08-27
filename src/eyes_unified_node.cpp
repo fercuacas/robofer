@@ -102,7 +102,7 @@ int main(int argc, char** argv){
 
   int DW = display->width();   if(DW <= 0) DW = eyes_w;
   int DH = display->height();  if(DH <= 0) DH = eyes_h;
-  menu.set_font_scale(std::clamp(DH / 100.0, 0.4, 1.0));
+  menu.set_font_scale(std::clamp(DH / 300.0, 0.1, 1.0));
   cv::Mat canvas(DH, DW, CV_8UC1, cv::Scalar(0));
 
   while(rclcpp::ok()){
