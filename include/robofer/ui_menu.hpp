@@ -74,6 +74,7 @@ private:
     bool is_submenu{false};
     MenuAction action{MenuAction::NONE};
     std::vector<Item> children;
+    cv::Scalar color{255,255,255};
   };
 
   /**

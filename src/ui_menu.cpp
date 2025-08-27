@@ -1,8 +1,25 @@
 #include "robofer/ui_menu.hpp"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
+#include <array>
+#include <cstdio>
+#include <memory>
 
 namespace robo_ui {
+
+namespace {
+std::pair<bool, std::string> query_wifi(){
+  std::array<char,128> buf{};
+  std::string ssid;
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | cut -d: -f2", "r"), pclose);
+  if(pipe && fgets(buf.data(), buf.size(), pipe.get())){
+    ssid = buf.data();
+    ssid.erase(std::remove(ssid.begin(), ssid.end(), '\n'), ssid.end());
+  }
+  bool connected = !ssid.empty();
+  return {connected, ssid};
+}
+} // anonymous
 
 MenuController::Item MenuController::build_default_tree(){
   Item root; root.label = "Menu"; root.is_submenu = true;
@@ -13,6 +30,8 @@ MenuController::Item MenuController::build_default_tree(){
   modos.children.push_back({"Happy", false, MenuAction::SET_HAPPY, {}});
 
   Item wifi; wifi.label = "Wi-Fi"; wifi.is_submenu = true;
+  wifi.children.push_back({"Status: --", false, MenuAction::NONE, {}});
+  wifi.children.push_back({"SSID: --",   false, MenuAction::NONE, {}});
 
   Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
 
@@ -104,7 +123,14 @@ void MenuController::dispatch(MenuAction a){
 
 void MenuController::draw_panel(cv::Mat& canvas){
   const int W = canvas.cols, H = canvas.rows;
-  const Item* menu = current_menu();
+  Item* menu = current_menu();
+
+  if(menu->label == "Wi-Fi" && menu->children.size() >= 2){
+    auto [connected, ssid] = query_wifi();
+    menu->children[0].label = std::string("Status: ") + (connected ? "Connected" : "Disconnected");
+    menu->children[0].color = connected ? cv::Scalar(0,255,0) : cv::Scalar(0,0,255);
+    menu->children[1].label = std::string("SSID: ") + (connected ? ssid : "-");
+  }
 
   // Determine width based on longest label
   int baseline = 0;
@@ -178,7 +204,7 @@ void MenuController::draw_items(cv::Mat& img, const std::vector<Item>& items, in
     int tx = x + 8;
     int ty = row_y + std::min(line_h-4, sz.height + 6);
     cv::putText(img, text, cv::Point(tx, ty), cv::FONT_HERSHEY_SIMPLEX, font_scale_,
-                sel ? cv::Scalar(0) : cv::Scalar(255), 1, cv::LINE_8);
+                it.color, 1, cv::LINE_8);
   }
 }
 
