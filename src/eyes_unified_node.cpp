@@ -103,7 +103,7 @@ int main(int argc, char** argv){
   int DW = display->width();   if(DW <= 0) DW = eyes_w;
   int DH = display->height();  if(DH <= 0) DH = eyes_h;
   menu.set_font_scale(std::clamp(DH / 200.0, 0.1, 1.0));
-  cv::Mat canvas(DH, DW, CV_8UC1, cv::Scalar(0));
+  cv::Mat canvas(DH, DW, CV_8UC3, cv::Scalar(0,0,0));
 
   while(rclcpp::ok()){
     rclcpp::spin_some(node);
@@ -111,12 +111,13 @@ int main(int argc, char** argv){
     eyes.update();
     const cv::Mat& m = eyes.frame();
 
-    canvas.setTo(cv::Scalar(0));
+    canvas.setTo(cv::Scalar(0,0,0));
     int ox = std::max(0, (DW - m.cols)/2);
     int oy = std::max(0, (DH - m.rows)/2);
     cv::Rect roi(ox, oy, std::min(m.cols, DW-ox), std::min(m.rows, DH-oy));
     if(roi.width > 0 && roi.height > 0){
-      m(cv::Rect(0,0,roi.width,roi.height)).copyTo(canvas(roi));
+      cv::Mat src = m(cv::Rect(0,0,roi.width,roi.height));
+      cv::cvtColor(src, canvas(roi), cv::COLOR_GRAY2BGR);
     }
 
     {

@@ -149,22 +149,33 @@ public:
   int height() const override { return lcd_h_; }
 
   void pushMono8(const cv::Mat& mono8) override {
-    if(mono8.empty() || mono8.type()!=CV_8UC1) return;
+    if(mono8.empty()) return;
 
-    // Centrado (como hacías): ojos 128x64 en LCD 128x160
     const int eyes_w = mono8.cols;
     const int eyes_h = mono8.rows;
     const int ox = std::max(0, (lcd_w_ - eyes_w) / 2);
     const int oy = std::max(0, (lcd_h_ - eyes_h) / 2);
 
-    // Preparamos un frame completo
     std::vector<uint16_t> fr(lcd_w_ * lcd_h_, rgb565(0,0,0));
-    for(int y=0; y<eyes_h && (y+oy)<lcd_h_; ++y){
-      const uint8_t* src = mono8.ptr<uint8_t>(y);
-      uint16_t* dst = &fr[(y+oy)*lcd_w_ + ox];
-      for(int x=0; x<eyes_w && (x+ox)<lcd_w_; ++x){
-        dst[x] = (src[x] >= 128) ? 0xFFFF : 0x0000;
+    if(mono8.type() == CV_8UC1){
+      for(int y=0; y<eyes_h && (y+oy)<lcd_h_; ++y){
+        const uint8_t* src = mono8.ptr<uint8_t>(y);
+        uint16_t* dst = &fr[(y+oy)*lcd_w_ + ox];
+        for(int x=0; x<eyes_w && (x+ox)<lcd_w_; ++x){
+          dst[x] = (src[x] >= 128) ? 0xFFFF : 0x0000;
+        }
       }
+    } else if(mono8.type() == CV_8UC3){
+      for(int y=0; y<eyes_h && (y+oy)<lcd_h_; ++y){
+        const cv::Vec3b* src = mono8.ptr<cv::Vec3b>(y);
+        uint16_t* dst = &fr[(y+oy)*lcd_w_ + ox];
+        for(int x=0; x<eyes_w && (x+ox)<lcd_w_; ++x){
+          const cv::Vec3b& p = src[x];
+          dst[x] = rgb565(p[2], p[1], p[0]);
+        }
+      }
+    } else {
+      return;
     }
     pushFrameRGB565(fr);
   }
