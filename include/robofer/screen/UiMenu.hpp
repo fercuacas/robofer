@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include <chrono>
+#include <cstdint>
 
 namespace robo_ui {
 
@@ -22,6 +23,9 @@ enum class MenuAction {
   SET_HAPPY,
   POWEROFF,
   BT_CONNECT,
+  BT_ACCEPT,
+  BT_REJECT,
+  BT_STOP,
 };
 
 /**
@@ -70,6 +74,7 @@ public:
   void setFontScale(double s);
 
   void setWifiStatus(bool connected, const std::string& ssid);
+  void setBtState(const std::string& state, uint32_t code);
 
 private:
   struct Item {

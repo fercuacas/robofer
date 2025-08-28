@@ -16,7 +16,10 @@ MenuController::Item MenuController::buildDefaultTree(){
   Item wifi; wifi.label = "Wi-Fi"; wifi.is_submenu = true;
   wifi.children.push_back({"Status: --", false, MenuAction::NONE, {}});
   wifi.children.push_back({"SSID: --",   false, MenuAction::NONE, {}});
-  wifi.children.push_back({"BT connect", false, MenuAction::BT_CONNECT, {}});
+  wifi.children.push_back({"Start provisioning", false, MenuAction::BT_CONNECT, {}});
+  wifi.children.push_back({"Accept", false, MenuAction::BT_ACCEPT, {}});
+  wifi.children.push_back({"Reject", false, MenuAction::BT_REJECT, {}});
+  wifi.children.push_back({"Stop provisioning", false, MenuAction::BT_STOP, {}});
 
   Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
 
@@ -40,6 +43,42 @@ void MenuController::setWifiStatus(bool connected, const std::string& ssid){
       wifi.children[0].label = std::string("Status: ") + (connected ? "Connected" : "Disconnected");
       wifi.children[0].color = connected ? cv::Scalar(0,255,0) : cv::Scalar(0,0,255);
       wifi.children[1].label = std::string("SSID: ") + (connected ? ssid : "-");
+    }
+  }
+}
+
+void MenuController::setBtState(const std::string& state, uint32_t code){
+  if(root_.children.size() > 1){
+    Item& wifi = root_.children[1];
+    if(wifi.label == "Wi-Fi" && wifi.children.size() >= 6){
+      // item2: start/state label
+      if(state == "IDLE"){
+        wifi.children[2].label = "Start provisioning";
+        wifi.children[2].action = MenuAction::BT_CONNECT;
+      } else {
+        wifi.children[2].label = std::string("State: ") + state;
+        wifi.children[2].action = MenuAction::NONE;
+      }
+      // items for confirm
+      if(state.rfind("CONFIRM_CODE",0) == 0){
+        wifi.children[3].label = std::string("Accept ") + std::to_string(code);
+        wifi.children[3].action = MenuAction::BT_ACCEPT;
+        wifi.children[4].label = "Reject";
+        wifi.children[4].action = MenuAction::BT_REJECT;
+      } else {
+        wifi.children[3].label = "";
+        wifi.children[3].action = MenuAction::NONE;
+        wifi.children[4].label = "";
+        wifi.children[4].action = MenuAction::NONE;
+      }
+      // item5: stop provisioning if not idle
+      if(state == "IDLE"){
+        wifi.children[5].label = "";
+        wifi.children[5].action = MenuAction::NONE;
+      } else {
+        wifi.children[5].label = "Stop provisioning";
+        wifi.children[5].action = MenuAction::BT_STOP;
+      }
     }
   }
 }
