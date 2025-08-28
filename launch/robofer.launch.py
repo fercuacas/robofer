@@ -8,5 +8,6 @@ def generate_launch_description():
         Node(package="robofer", executable="eyes_unified_node", name="eyes"),
         Node(package="robofer", executable="state_handler_node", name="state_handler"),
         Node(package="robofer", executable="buttons_node", name="buttons"),
+        Node(package="robofer", executable="wifi_manager_node", name="wifi_manager"),
     ])
 

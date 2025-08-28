@@ -119,6 +119,13 @@ def generate_launch_description():
         condition=UnlessCondition(sim),
     )
 
+    wifi_node = Node(
+        package='robofer',
+        executable='wifi_manager_node',
+        name='wifi_manager_node',
+        output='screen',
+    )
+
     # ========= LAUNCH DESCRIPTION =========
     ld = LaunchDescription()
 
@@ -161,5 +168,6 @@ def generate_launch_description():
     ld.add_action(eyes_node_hw)
     ld.add_action(keyboard_node)
     ld.add_action(buttons_node)
+    ld.add_action(wifi_node)
 
     return ld
