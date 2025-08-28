@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include <std_msgs/msg/u_int8.hpp>
+#include <std_srvs/srv/trigger.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <mutex>
@@ -9,6 +10,7 @@
 #include "robofer/screen/eyes.hpp"
 #include "robofer/screen/display.hpp"
 #include "robofer/screen/ui_menu.hpp"
+#include "robofer/msg/wifi_status.hpp"
 
 using robo_eyes::RoboEyes;
 using robo_eyes::Mood;
@@ -21,6 +23,7 @@ static const char* NODE_NAME = "robo_eyes";
 struct ActionDispatcher {
   rclcpp::Logger log;
   rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr mode_pub;
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr bt_client;
   void operator()(MenuAction a){
     std_msgs::msg::UInt8 m;
     switch(a){
@@ -42,6 +45,13 @@ struct ActionDispatcher {
       case MenuAction::POWEROFF:
         RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
         std::system("sudo poweroff &");
+        break;
+      case MenuAction::BT_CONNECT:
+        RCLCPP_INFO(log, "MenuAction: BT_CONNECT");
+        if(bt_client){
+          auto req = std::make_shared<std_srvs::srv::Trigger::Request>();
+          bt_client->async_send_request(req);
+        }
         break;
       case MenuAction::NONE:
       default:
@@ -76,7 +86,8 @@ int main(int argc, char** argv){
   eyes.setMood(Mood::DEFAULT);
 
   auto mode_pub = node->create_publisher<std_msgs::msg::UInt8>("/mode", 10);
-  ActionDispatcher dispatch{ log, mode_pub };
+  auto bt_client = node->create_client<std_srvs::srv::Trigger>("/wifi_prov/start");
+  ActionDispatcher dispatch{ log, mode_pub, bt_client };
   MenuController   menu([&](MenuAction a){ dispatch(a); });
   menu.set_timeout_ms(menu_timeout_ms);
 
@@ -104,6 +115,13 @@ int main(int argc, char** argv){
   int DH = display->height();  if(DH <= 0) DH = eyes_h;
   menu.set_font_scale(std::clamp(DH / 200.0, 0.1, 1.0));
   cv::Mat canvas(DH, DW, CV_8UC3, cv::Scalar(0,0,0));
+
+  auto wifi_sub = node->create_subscription<robofer::msg::WifiStatus>(
+    "/wifi/status", 10,
+    [&](const robofer::msg::WifiStatus::SharedPtr msg){
+      std::lock_guard<std::mutex> lk(ui_mtx);
+      menu.set_wifi_status(msg->connected, msg->ssid);
+    });
 
   while(rclcpp::ok()){
     rclcpp::spin_some(node);

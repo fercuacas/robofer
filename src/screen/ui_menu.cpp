@@ -1,25 +1,9 @@
 #include "robofer/screen/ui_menu.hpp"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
-#include <array>
-#include <cstdio>
-#include <memory>
 
 namespace robo_ui {
 
-namespace {
-std::pair<bool, std::string> query_wifi(){
-  std::array<char,128> buf{};
-  std::string ssid;
-  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | cut -d: -f2", "r"), pclose);
-  if(pipe && fgets(buf.data(), buf.size(), pipe.get())){
-    ssid = buf.data();
-    ssid.erase(std::remove(ssid.begin(), ssid.end(), '\n'), ssid.end());
-  }
-  bool connected = !ssid.empty();
-  return {connected, ssid};
-}
-} // anonymous
 
 MenuController::Item MenuController::build_default_tree(){
   Item root; root.label = "Menu"; root.is_submenu = true;
@@ -32,6 +16,7 @@ MenuController::Item MenuController::build_default_tree(){
   Item wifi; wifi.label = "Wi-Fi"; wifi.is_submenu = true;
   wifi.children.push_back({"Status: --", false, MenuAction::NONE, {}});
   wifi.children.push_back({"SSID: --",   false, MenuAction::NONE, {}});
+  wifi.children.push_back({"BT connect", false, MenuAction::BT_CONNECT, {}});
 
   Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
 
@@ -47,6 +32,17 @@ MenuController::MenuController(std::function<void(MenuAction)> on_action)
 
 void MenuController::set_timeout_ms(int ms){ timeout_ms_ = std::max(0, ms); }
 void MenuController::set_font_scale(double s){ font_scale_ = std::clamp(s, 0.1, 2.0); }
+
+void MenuController::set_wifi_status(bool connected, const std::string& ssid){
+  if(root_.children.size() > 1){
+    Item& wifi = root_.children[1];
+    if(wifi.label == "Wi-Fi" && wifi.children.size() >= 2){
+      wifi.children[0].label = std::string("Status: ") + (connected ? "Connected" : "Disconnected");
+      wifi.children[0].color = connected ? cv::Scalar(0,255,0) : cv::Scalar(0,0,255);
+      wifi.children[1].label = std::string("SSID: ") + (connected ? ssid : "-");
+    }
+  }
+}
 
 bool MenuController::is_active() const {
   auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - last_key_time_).count();
@@ -125,27 +121,6 @@ void MenuController::draw_panel(cv::Mat& canvas){
   const int W = canvas.cols, H = canvas.rows;
   Item* menu = current_menu();
 
-  if(menu->label == "Wi-Fi" && menu->children.size() >= 2){
-       if(!wifi_requested_){
-      wifi_future_ = std::async(std::launch::async, query_wifi);
-      wifi_requested_ = true;
-    }
-
-    if(wifi_future_.valid()){
-      if(wifi_future_.wait_for(std::chrono::seconds(0)) == std::future_status::ready){
-        auto [connected, ssid] = wifi_future_.get();
-        menu->children[0].label = std::string("Status: ") + (connected ? "Connected" : "Disconnected");
-        menu->children[0].color = connected ? cv::Scalar(0,255,0) : cv::Scalar(0,0,255);
-        menu->children[1].label = std::string("SSID: ") + (connected ? ssid : "-");
-      } else {
-        menu->children[0].label = "Status: ...";
-        menu->children[1].label = "SSID: ...";
-      }
-    }
-  } else {
-    wifi_requested_ = false;
-    wifi_future_ = std::future<std::pair<bool, std::string>>();
-  }
 
   // Determine width based on longest label
   int baseline = 0;
