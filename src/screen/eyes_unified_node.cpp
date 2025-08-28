@@ -6,9 +6,9 @@
 #include <mutex>
 #include <algorithm>
 
-#include "robofer/eyes.hpp"
-#include "robofer/display.hpp"
-#include "robofer/ui_menu.hpp"
+#include "robofer/screen/eyes.hpp"
+#include "robofer/screen/display.hpp"
+#include "robofer/screen/ui_menu.hpp"
 
 using robo_eyes::RoboEyes;
 using robo_eyes::Mood;

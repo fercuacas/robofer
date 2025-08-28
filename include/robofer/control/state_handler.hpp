@@ -4,9 +4,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/u_int8.hpp>
 
-#include "robofer/servos.hpp"
-#include "robofer/eyes.hpp"
-#include "robofer/audio_player.hpp"
+#include "robofer/actuators/servos.hpp"
+#include "robofer/screen/eyes.hpp"
+#include "robofer/audio/audio_player.hpp"
 
 namespace robofer {
 
