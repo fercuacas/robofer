@@ -43,13 +43,13 @@ public:
    * @brief Process a key event and reset the inactivity timer.
    * @param key Navigation input.
    */
-  void on_key(UiKey key);
+  void onKey(UiKey key);
 
   /**
    * @brief Whether the menu is currently visible/active.
    * @return true if the menu is being displayed.
    */
-  bool is_active() const;
+  bool isActive() const;
 
   /**
    * @brief Draw the menu overlay onto the given canvas if active.
@@ -61,15 +61,15 @@ public:
    * @brief Configure inactivity timeout in milliseconds (default 5000).
    * @param ms Timeout duration.
    */
-  void set_timeout_ms(int ms);
+  void setTimeoutMs(int ms);
 
   /**
    * @brief Set OpenCV font scale used for drawing (default 0.15).
    * @param s Font scale factor.
    */
-  void set_font_scale(double s);
+  void setFontScale(double s);
 
-  void set_wifi_status(bool connected, const std::string& ssid);
+  void setWifiStatus(bool connected, const std::string& ssid);
 
 private:
   struct Item {
@@ -84,7 +84,7 @@ private:
    * @brief Build the default menu hierarchy.
    * @return Root item of the tree.
    */
-  static Item build_default_tree();
+  static Item buildDefaultTree();
 
   // navigation
   std::vector<int> path_;
@@ -95,13 +95,13 @@ private:
    * @brief Retrieve the currently selected menu.
    * @return Pointer to const menu item.
    */
-  const Item* current_menu() const;
+  const Item* currentMenu() const;
 
   /**
    * @brief Retrieve the currently selected menu.
    * @return Pointer to mutable menu item.
    */
-  Item* current_menu();
+  Item* currentMenu();
 
   /**
    * @brief Enter the currently highlighted submenu or trigger its action.
@@ -134,7 +134,7 @@ private:
    * @brief Draw the menu panel background.
    * @param canvas Target image.
    */
-  void draw_panel(cv::Mat& canvas);
+  void drawPanel(cv::Mat& canvas);
 
   /**
    * @brief Draw menu header text.
@@ -144,7 +144,7 @@ private:
    * @param y Y coordinate.
    * @param w Width of header area.
    */
-  void draw_header(cv::Mat& img, const std::string& title, int x, int y, int w, int pad);
+  void drawHeader(cv::Mat& img, const std::string& title, int x, int y, int w, int pad);
 
   /**
    * @brief Draw individual menu items.
@@ -157,8 +157,8 @@ private:
    * @param start First item index to show.
    * @param max_items Maximum number of items to draw.
    */
-  void draw_items(cv::Mat& img, const std::vector<Item>& items, int x, int y,
-                   int w, int line_h, int start, int max_items, int pad);
+  void drawItems(cv::Mat& img, const std::vector<Item>& items, int x, int y,
+                 int w, int line_h, int start, int max_items, int pad);
 
   Item root_;
   std::function<void(MenuAction)> on_action_;

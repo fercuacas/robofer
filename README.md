@@ -36,28 +36,28 @@ navegar por modos, ajustes de Wi-Fi y apagado del sistema.
 ```
 robofer/
 ├─ include/robofer/
-│  ├─ eyes.hpp            # lógica de ojos
-│  ├─ display.hpp         # interfaz de display + factory
-│  └─ ui_menu.hpp         # controlador del menú (overlay)
+│  ├─ Eyes.hpp            # lógica de ojos
+│  ├─ Display.hpp         # interfaz de display + factory
+│  └─ UiMenu.hpp         # controlador del menú (overlay)
 ├─ src/
-│  ├─ eyes.cpp            # implementación de ojos
-│  ├─ display.cpp         # DisplaySim (OpenCV) + DisplayST7735 (SPI/gpiod)
-│  ├─ ui_menu.cpp         # estructura de menú + dibujo y navegación
-│  ├─ eyes_unified_node.cpp   # nodo único: ojos + menú + display
-│  ├─ buttons.cpp             # nodo de botones físicos (TTP223 → /ui/button)
-│  └─ keyboard_buttons.cpp    # nodo teclado (WASD → /ui/button, simulación)
+│  ├─ Eyes.cpp            # implementación de ojos
+│  ├─ Display.cpp         # DisplaySim (OpenCV) + DisplayST7735 (SPI/gpiod)
+│  ├─ UiMenu.cpp         # estructura de menú + dibujo y navegación
+│  ├─ EyesUnifiedNode.cpp   # nodo único: ojos + menú + display
+│  ├─ ButtonsNode.cpp             # nodo de botones físicos (TTP223 → /ui/button)
+│  └─ KeyboardButtonsNode.cpp    # nodo teclado (WASD → /ui/button, simulación)
 └─ launch/
    └─ eyes_system.launch.py   # launch unificado (sim | real)
 ```
 
 ### Componentes principales
 
-* **RoboEyes (eyes.hpp/.cpp):** genera un `cv::Mat` 8UC1 con los ojos
+* **RoboEyes (Eyes.hpp/.cpp):** genera un `cv::Mat` 8UC1 con los ojos
   (parpadeo, estados, animaciones).
-* **Display (display.hpp/.cpp):**
+* **Display (Display.hpp/.cpp):**
   * `DisplaySim`: ventana OpenCV (escalado).
   * `DisplayST7735`: panel físico (SPI, RGB565, centrado del frame).
-* **Menú (ui_menu.hpp/.cpp):**
+* **Menú (UiMenu.hpp/.cpp):**
   * Árbol raíz: Modos, Wi-Fi, Apagar.
   * Modos: Angry, Sad(Frown), Happy.
   * Timeout de visibilidad: 5 s desde la última pulsación.

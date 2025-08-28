@@ -4,9 +4,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/u_int8.hpp>
 
-#include "robofer/actuators/servos.hpp"
-#include "robofer/screen/eyes.hpp"
-#include "robofer/audio/audio_player.hpp"
+#include "robofer/actuators/ControlServo.hpp"
+#include "robofer/screen/Eyes.hpp"
+#include "robofer/audio/AudioPlayer.hpp"
 
 namespace robofer {
 
@@ -36,17 +36,17 @@ private:
      * @brief Called when the state becomes active.
      * @param ctx Parent context.
      */
-    virtual void on_enter(StateHandler &ctx) {}
+    virtual void onEnter(StateHandler &ctx) {}
     /**
      * @brief Called periodically while the state is active.
      * @param ctx Parent context.
      */
-    virtual void on_update(StateHandler &ctx) {}
+    virtual void onUpdate(StateHandler &ctx) {}
     /**
      * @brief Called when the state is about to be replaced.
      * @param ctx Parent context.
      */
-    virtual void on_exit(StateHandler &ctx) {}
+    virtual void onExit(StateHandler &ctx) {}
   };
 
   // Concrete states implementing different moods
@@ -62,13 +62,13 @@ private:
    * @brief Change the active mood/state.
    * @param m Desired mood.
    */
-  void set_state(Mood m);
+  void setState(Mood m);
 
   /**
    * @brief Handle external mode requests from a topic.
    * @param msg Incoming message with the desired mood.
    */
-  void mode_callback(const std_msgs::msg::UInt8::SharedPtr msg);
+  void modeCallback(const std_msgs::msg::UInt8::SharedPtr msg);
 
   /**
    * @brief Periodic update tick invoked by a timer.

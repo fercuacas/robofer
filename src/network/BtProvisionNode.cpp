@@ -15,7 +15,7 @@ class BtProvisionNode : public rclcpp::Node {
 public:
   BtProvisionNode() : Node("bt_provision_server") {
     wifi_client_ = create_client<robofer::srv::WifiSetCredentials>("/wifi/set_credentials");
-    bt_thread_ = std::thread(&BtProvisionNode::server_loop_, this);
+    bt_thread_ = std::thread(&BtProvisionNode::serverLoop, this);
   }
   ~BtProvisionNode(){
     running_ = false;
@@ -26,7 +26,7 @@ public:
     if(bt_thread_.joinable()) bt_thread_.join();
   }
 private:
-  void server_loop_(){
+  void serverLoop(){
     int sock = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
     if(sock < 0){
       RCLCPP_ERROR(get_logger(), "Cannot create Bluetooth socket");

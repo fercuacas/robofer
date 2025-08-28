@@ -7,9 +7,9 @@
 #include <mutex>
 #include <algorithm>
 
-#include "robofer/screen/eyes.hpp"
-#include "robofer/screen/display.hpp"
-#include "robofer/screen/ui_menu.hpp"
+#include "robofer/screen/Eyes.hpp"
+#include "robofer/screen/Display.hpp"
+#include "robofer/screen/UiMenu.hpp"
 #include "robofer/msg/wifi_status.hpp"
 
 using robo_eyes::RoboEyes;
@@ -89,7 +89,7 @@ int main(int argc, char** argv){
   auto bt_client = node->create_client<std_srvs::srv::Trigger>("/wifi_prov/start");
   ActionDispatcher dispatch{ log, mode_pub, bt_client };
   MenuController   menu([&](MenuAction a){ dispatch(a); });
-  menu.set_timeout_ms(menu_timeout_ms);
+  menu.setTimeoutMs(menu_timeout_ms);
 
   std::mutex ui_mtx;
   auto sub_ui = node->create_subscription<std_msgs::msg::Int32>(
@@ -98,7 +98,7 @@ int main(int argc, char** argv){
       std::lock_guard<std::mutex> lk(ui_mtx);
       int v = msg->data;
       if(v < 0 || v > 3) return;
-      menu.on_key(static_cast<UiKey>(v));
+      menu.onKey(static_cast<UiKey>(v));
     });
 
   auto sub_mood = node->create_subscription<std_msgs::msg::UInt8>(
@@ -113,14 +113,14 @@ int main(int argc, char** argv){
 
   int DW = display->width();   if(DW <= 0) DW = eyes_w;
   int DH = display->height();  if(DH <= 0) DH = eyes_h;
-  menu.set_font_scale(std::clamp(DH / 200.0, 0.1, 1.0));
+  menu.setFontScale(std::clamp(DH / 200.0, 0.1, 1.0));
   cv::Mat canvas(DH, DW, CV_8UC3, cv::Scalar(0,0,0));
 
   auto wifi_sub = node->create_subscription<robofer::msg::WifiStatus>(
     "/wifi/status", 10,
     [&](const robofer::msg::WifiStatus::SharedPtr msg){
       std::lock_guard<std::mutex> lk(ui_mtx);
-      menu.set_wifi_status(msg->connected, msg->ssid);
+      menu.setWifiStatus(msg->connected, msg->ssid);
     });
 
   while(rclcpp::ok()){

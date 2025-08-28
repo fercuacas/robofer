@@ -1,6 +1,6 @@
 #include <functional>
 #include <chrono>
-#include "robofer/control/state_handler.hpp"
+#include "robofer/control/StateHandler.hpp"
 
 using namespace std::chrono_literals;
 
@@ -10,12 +10,12 @@ namespace robofer {
 
 class StateHandler::HappyState : public StateHandler::State {
 public:
-  void on_enter(StateHandler &ctx) override {
+  void onEnter(StateHandler &ctx) override {
     RCLCPP_INFO(ctx.get_logger(), "Entering HAPPY state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::HAPPY);
     ctx.mood_pub_->publish(msg);
-    ctx.servos_.set_speed(0, 360.0f);
-    ctx.servos_.set_speed(1,-360.0f);
+    ctx.servos_.setSpeed(0, 360.0f);
+    ctx.servos_.setSpeed(1,-360.0f);
     if(ctx.audio_ && !ctx.happy_sound_.empty())
       ctx.audio_->play(ctx.happy_sound_);
   }
@@ -23,12 +23,12 @@ public:
 
 class StateHandler::AngryState : public StateHandler::State {
 public:
-  void on_enter(StateHandler &ctx) override {
+  void onEnter(StateHandler &ctx) override {
     RCLCPP_INFO(ctx.get_logger(), "Entering ANGRY state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::ANGRY);
     ctx.mood_pub_->publish(msg);
-    ctx.servos_.move_to(0, 30.0f, 120.0f);
-    ctx.servos_.move_to(1,150.0f, 120.0f);
+    ctx.servos_.moveTo(0, 30.0f, 120.0f);
+    ctx.servos_.moveTo(1,150.0f, 120.0f);
     if(ctx.audio_ && !ctx.angry_sound_.empty())
       ctx.audio_->play(ctx.angry_sound_);
   }
@@ -36,12 +36,12 @@ public:
 
 class StateHandler::SadState : public StateHandler::State {
 public:
-  void on_enter(StateHandler &ctx) override {
+  void onEnter(StateHandler &ctx) override {
     RCLCPP_INFO(ctx.get_logger(), "Entering SAD state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::FROWN);
     ctx.mood_pub_->publish(msg);
-    ctx.servos_.set_idle(0);
-    ctx.servos_.set_idle(1);
+    ctx.servos_.setIdle(0);
+    ctx.servos_.setIdle(1);
     if(ctx.audio_ && !ctx.sad_sound_.empty())
       ctx.audio_->play(ctx.sad_sound_);
   }
@@ -72,25 +72,25 @@ StateHandler::StateHandler()
   mood_pub_ = create_publisher<std_msgs::msg::UInt8>("/eyes/mood", 10);
   mode_sub_ = create_subscription<std_msgs::msg::UInt8>(
       "/mode", 10,
-      std::bind(&StateHandler::mode_callback, this, std::placeholders::_1));
+      std::bind(&StateHandler::modeCallback, this, std::placeholders::_1));
   timer_ = create_wall_timer(50ms, std::bind(&StateHandler::update, this));
-  set_state(Mood::FROWN);
+  setState(Mood::FROWN);
 }
 
 void StateHandler::update() {
-  if (current_state_) current_state_->on_update(*this);
+  if (current_state_) current_state_->onUpdate(*this);
 }
 
-void StateHandler::mode_callback(const std_msgs::msg::UInt8::SharedPtr msg) {
+void StateHandler::modeCallback(const std_msgs::msg::UInt8::SharedPtr msg) {
   auto m = static_cast<Mood>(msg->data);
   RCLCPP_INFO(get_logger(), "Received mode request: %u", static_cast<unsigned>(msg->data));
-  set_state(m);
+  setState(m);
 }
 
-void StateHandler::set_state(Mood m) {
+void StateHandler::setState(Mood m) {
   RCLCPP_INFO(get_logger(), "Changing state to %u", static_cast<unsigned>(m));
   if (audio_) audio_->stop();
-  if (current_state_) current_state_->on_exit(*this);
+  if (current_state_) current_state_->onExit(*this);
   switch (m) {
     case Mood::HAPPY:
       current_state_ = std::make_unique<HappyState>();
@@ -103,7 +103,7 @@ void StateHandler::set_state(Mood m) {
       current_state_ = std::make_unique<SadState>();
       break;
   }
-  current_state_->on_enter(*this);
+  current_state_->onEnter(*this);
 }
 
 // --- main ------------------------------------------------------------------
