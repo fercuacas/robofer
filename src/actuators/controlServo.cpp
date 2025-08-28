@@ -1,4 +1,4 @@
-#include "robofer/actuators/servos.hpp"
+#include "robofer/actuators/controlServo.hpp"
 #include <chrono>
 #include <cmath>
 #include <algorithm>
@@ -32,7 +32,7 @@ ControlServo::ControlServo(rclcpp::Node *node,
   }
   for(auto &s : servos_){
     s.running = true;
-    s.th = std::thread([this,&s]{ thread_func(s); });
+    s.th = std::thread([this,&s]{ threadFunc(s); });
   }
 }
 
@@ -50,13 +50,13 @@ ControlServo::~ControlServo(){
   if(!sim_ && chip_) gpiod_chip_close(chip_);
 }
 
-void ControlServo::set_speed(int id, float deg_per_sec){
+void ControlServo::setSpeed(int id, float deg_per_sec){
   if(id < 0 || id >= (int)servos_.size()) return;
   servos_[id].speed = deg_per_sec;
   servos_[id].has_target = false;
 }
 
-void ControlServo::move_to(int id, float angle_deg, float speed_deg_per_sec){
+void ControlServo::moveTo(int id, float angle_deg, float speed_deg_per_sec){
   if(id < 0 || id >= (int)servos_.size()) return;
   servos_[id].target_angle = angle_deg;
   servos_[id].speed = std::abs(speed_deg_per_sec);
@@ -69,11 +69,11 @@ void ControlServo::stop(int id){
   servos_[id].has_target = false;
 }
 
-void ControlServo::set_idle(int id){
-  move_to(id, 0.0f, 90.0f);
+void ControlServo::setIdle(int id){
+  moveTo(id, 0.0f, 90.0f);
 }
 
-void ControlServo::thread_func(Servo &s){
+void ControlServo::threadFunc(Servo &s){
   using clock = std::chrono::steady_clock;
   const float min_pw = 1000.0f; // microseconds
   const float max_pw = 2000.0f; // microseconds

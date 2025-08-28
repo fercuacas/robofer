@@ -4,7 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/u_int8.hpp>
 
-#include "robofer/actuators/servos.hpp"
+#include "robofer/actuators/controlServo.hpp"
 #include "robofer/screen/eyes.hpp"
 #include "robofer/audio/audio_player.hpp"
 
