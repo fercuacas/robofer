@@ -21,7 +21,8 @@ enum class MenuAction {
   SET_SAD,
   SET_HAPPY,
   POWEROFF,
-  BT_CONNECT,
+  BT_START,
+  BT_STOP,
 };
 
 /**

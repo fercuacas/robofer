@@ -16,7 +16,8 @@ MenuController::Item MenuController::buildDefaultTree(){
   Item wifi; wifi.label = "Wi-Fi"; wifi.is_submenu = true;
   wifi.children.push_back({"Status: --", false, MenuAction::NONE, {}});
   wifi.children.push_back({"SSID: --",   false, MenuAction::NONE, {}});
-  wifi.children.push_back({"BT connect", false, MenuAction::BT_CONNECT, {}});
+  wifi.children.push_back({"Start BT cfg", false, MenuAction::BT_START, {}});
+  wifi.children.push_back({"Stop BT cfg",  false, MenuAction::BT_STOP,  {}});
 
   Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
 
