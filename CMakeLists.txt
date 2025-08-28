@@ -25,6 +25,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/WifiGetStatus.srv"
   "srv/WifiSetCredentials.srv"
   "srv/WifiScan.srv"
+  "srv/SetBoolWithCode.srv"
   DEPENDENCIES std_msgs
 )
 

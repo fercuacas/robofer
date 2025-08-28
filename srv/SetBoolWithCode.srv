@@ -1,0 +1,5 @@
+bool accept
+uint32 code
+---
+bool success
+string message
