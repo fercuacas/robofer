@@ -14,8 +14,8 @@ public:
     RCLCPP_INFO(ctx.get_logger(), "Entering HAPPY state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::HAPPY);
     ctx.mood_pub_->publish(msg);
-    ctx.servos_.set_speed(0, 360.0f);
-    ctx.servos_.set_speed(1,-360.0f);
+    ctx.servos_.setSpeed(0, 360.0f);
+    ctx.servos_.setSpeed(1,-360.0f);
     if(ctx.audio_ && !ctx.happy_sound_.empty())
       ctx.audio_->play(ctx.happy_sound_);
   }
@@ -27,8 +27,8 @@ public:
     RCLCPP_INFO(ctx.get_logger(), "Entering ANGRY state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::ANGRY);
     ctx.mood_pub_->publish(msg);
-    ctx.servos_.move_to(0, 30.0f, 120.0f);
-    ctx.servos_.move_to(1,150.0f, 120.0f);
+    ctx.servos_.moveTo(0, 30.0f, 120.0f);
+    ctx.servos_.moveTo(1,150.0f, 120.0f);
     if(ctx.audio_ && !ctx.angry_sound_.empty())
       ctx.audio_->play(ctx.angry_sound_);
   }
@@ -40,8 +40,8 @@ public:
     RCLCPP_INFO(ctx.get_logger(), "Entering SAD state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::FROWN);
     ctx.mood_pub_->publish(msg);
-    ctx.servos_.set_idle(0);
-    ctx.servos_.set_idle(1);
+    ctx.servos_.setIdle(0);
+    ctx.servos_.setIdle(1);
     if(ctx.audio_ && !ctx.sad_sound_.empty())
       ctx.audio_->play(ctx.sad_sound_);
   }

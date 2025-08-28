@@ -67,7 +67,7 @@ target_link_libraries(robo_display
 # Servos library
 # =========================================
 add_library(robo_servos
-  src/actuators/servos.cpp
+  src/actuators/controlServo.cpp
 )
 target_include_directories(robo_servos PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -154,7 +154,7 @@ target_link_libraries(state_handler_node
 )
 
 add_executable(servo_monitor_node
-  src/actuators/servo_monitor_node.cpp
+  src/actuators/servoMonitorNode.cpp
 )
 ament_target_dependencies(servo_monitor_node rclcpp)
 rosidl_target_interfaces(servo_monitor_node
