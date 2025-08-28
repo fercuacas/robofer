@@ -23,7 +23,8 @@ static const char* NODE_NAME = "robo_eyes";
 struct ActionDispatcher {
   rclcpp::Logger log;
   rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr mode_pub;
-  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr bt_client;
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr bt_start;
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr bt_stop;
   void operator()(MenuAction a){
     std_msgs::msg::UInt8 m;
     switch(a){
@@ -46,11 +47,18 @@ struct ActionDispatcher {
         RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
         std::system("sudo poweroff &");
         break;
-      case MenuAction::BT_CONNECT:
-        RCLCPP_INFO(log, "MenuAction: BT_CONNECT");
-        if(bt_client){
+      case MenuAction::BT_START:
+        RCLCPP_INFO(log, "MenuAction: BT_START");
+        if(bt_start){
           auto req = std::make_shared<std_srvs::srv::Trigger::Request>();
-          bt_client->async_send_request(req);
+          bt_start->async_send_request(req);
+        }
+        break;
+      case MenuAction::BT_STOP:
+        RCLCPP_INFO(log, "MenuAction: BT_STOP");
+        if(bt_stop){
+          auto req = std::make_shared<std_srvs::srv::Trigger::Request>();
+          bt_stop->async_send_request(req);
         }
         break;
       case MenuAction::NONE:
@@ -86,8 +94,9 @@ int main(int argc, char** argv){
   eyes.setMood(Mood::DEFAULT);
 
   auto mode_pub = node->create_publisher<std_msgs::msg::UInt8>("/mode", 10);
-  auto bt_client = node->create_client<std_srvs::srv::Trigger>("/wifi_prov/start");
-  ActionDispatcher dispatch{ log, mode_pub, bt_client };
+  auto bt_start = node->create_client<std_srvs::srv::Trigger>("/wifi_prov/start");
+  auto bt_stop  = node->create_client<std_srvs::srv::Trigger>("/wifi_prov/stop");
+  ActionDispatcher dispatch{ log, mode_pub, bt_start, bt_stop };
   MenuController   menu([&](MenuAction a){ dispatch(a); });
   menu.setTimeoutMs(menu_timeout_ms);
 
