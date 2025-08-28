@@ -22,6 +22,7 @@ public:
     if(server_sock_ >= 0){
       shutdown(server_sock_, SHUT_RDWR);
       close(server_sock_);
+      server_sock_ = -1;
     }
     if(bt_thread_.joinable()) bt_thread_.join();
   }
