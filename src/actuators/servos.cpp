@@ -1,4 +1,4 @@
-#include "robofer/servos.hpp"
+#include "robofer/actuators/servos.hpp"
 #include <chrono>
 #include <cmath>
 #include <algorithm>
