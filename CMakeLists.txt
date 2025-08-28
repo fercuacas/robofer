@@ -9,6 +9,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
@@ -19,6 +20,11 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/EyesCommand.msg"
   "msg/ServoGoal.msg"
   "msg/SoundRequest.msg"
+  "msg/WifiStatus.msg"
+  "msg/WifiNetwork.msg"
+  "srv/WifiGetStatus.srv"
+  "srv/WifiSetCredentials.srv"
+  "srv/WifiScan.srv"
   DEPENDENCIES std_msgs
 )
 
@@ -115,12 +121,14 @@ add_executable(eyes_unified_node
   src/screen/eyes_unified_node.cpp
   src/screen/ui_menu.cpp
 )
-ament_target_dependencies(eyes_unified_node rclcpp std_msgs)
+ament_target_dependencies(eyes_unified_node rclcpp std_msgs std_srvs)
 target_link_libraries(eyes_unified_node
   robo_eyes_lib
   robo_display
   ${OpenCV_LIBS}
 )
+rosidl_target_interfaces(eyes_unified_node
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 # --- Botones físicos ---
 add_executable(buttons_node
@@ -152,6 +160,21 @@ ament_target_dependencies(servo_monitor_node rclcpp)
 rosidl_target_interfaces(servo_monitor_node
   ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
+add_executable(wifi_manager_node
+  src/network/wifi_manager_node.cpp
+)
+ament_target_dependencies(wifi_manager_node rclcpp)
+rosidl_target_interfaces(wifi_manager_node
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+add_executable(bt_provision_node
+  src/network/bt_provision_node.cpp
+)
+ament_target_dependencies(bt_provision_node rclcpp)
+target_link_libraries(bt_provision_node bluetooth)
+rosidl_target_interfaces(bt_provision_node
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
 # =========================================
 # 4) Instalación
 #    - Librerías a lib/
@@ -179,6 +202,8 @@ install(TARGETS
   keyboard_buttons_node
   state_handler_node
   servo_monitor_node
+  wifi_manager_node
+  bt_provision_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
