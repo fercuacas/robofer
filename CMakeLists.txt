@@ -26,7 +26,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 # 1) Librería de lógica de ojos
 # =========================================
 add_library(robo_eyes_lib SHARED
-  src/eyes.cpp
+  src/screen/eyes.cpp
 )
 # Headers públicos para quien linke esta lib
 target_include_directories(robo_eyes_lib PUBLIC
@@ -44,7 +44,7 @@ target_link_libraries(robo_eyes_lib
 # 2) Librería de displays unificada (SIM + ST7735)
 # =========================================
 add_library(robo_display
-  src/display.cpp
+  src/screen/display.cpp
 )
 target_include_directories(robo_display PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -61,7 +61,7 @@ target_link_libraries(robo_display
 # Servos library
 # =========================================
 add_library(robo_servos
-  src/servos.cpp
+  src/actuators/servos.cpp
 )
 target_include_directories(robo_servos PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -76,7 +76,7 @@ rosidl_target_interfaces(robo_servos
 # Audio library
 # =========================================
 add_library(robo_audio
-  src/audio_player.cpp
+  src/audio/audio_player.cpp
 )
 target_include_directories(robo_audio PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -89,7 +89,7 @@ target_include_directories(robo_audio PUBLIC
 
 # 3.1) Simulador OpenCV clásico (si quieres mantenerlo)
 add_executable(robo_eyes_sim
-  src/eyes_node.cpp
+  src/screen/eyes_node.cpp
 )
 ament_target_dependencies(robo_eyes_sim rclcpp)
 target_link_libraries(robo_eyes_sim
@@ -98,9 +98,9 @@ target_link_libraries(robo_eyes_sim
 )
 
 # 3.2) Nodo ST7735 clásico (si quieres mantenerlo)
-#     OJO: NO añadimos src/eyes.cpp aquí (ya está en la librería)
+#     OJO: NO añadimos src/screen/eyes.cpp aquí (ya está en la librería)
 add_executable(robo_eyes_st7735_node
-  src/eyes_st7735_node.cpp
+  src/screen/eyes_st7735_node.cpp
 )
 ament_target_dependencies(robo_eyes_st7735_node rclcpp)
 target_include_directories(robo_eyes_st7735_node PRIVATE include)
@@ -112,8 +112,8 @@ target_link_libraries(robo_eyes_st7735_node
 
 # 3.3) Nodo unificado (elige backend por parámetro: sim | st7735)
 add_executable(eyes_unified_node
-  src/eyes_unified_node.cpp
-  src/ui_menu.cpp
+  src/screen/eyes_unified_node.cpp
+  src/screen/ui_menu.cpp
 )
 ament_target_dependencies(eyes_unified_node rclcpp std_msgs)
 target_link_libraries(eyes_unified_node
@@ -124,20 +124,20 @@ target_link_libraries(eyes_unified_node
 
 # --- Botones físicos ---
 add_executable(buttons_node
-  src/buttons.cpp
+  src/input/buttons.cpp
 )
 ament_target_dependencies(buttons_node rclcpp std_msgs)
 target_link_libraries(buttons_node gpiod)
 
 # --- Botones por teclado (simulación) ---
 add_executable(keyboard_buttons_node
-  src/keyboard_buttons.cpp
+  src/input/keyboard_buttons.cpp
 )
 ament_target_dependencies(keyboard_buttons_node rclcpp std_msgs)
 
 # --- State handler (modes + servos) ---
 add_executable(state_handler_node
-  src/state_handler_node.cpp
+  src/control/state_handler_node.cpp
 )
 ament_target_dependencies(state_handler_node rclcpp std_msgs)
 target_link_libraries(state_handler_node
@@ -146,7 +146,7 @@ target_link_libraries(state_handler_node
 )
 
 add_executable(servo_monitor_node
-  src/servo_monitor_node.cpp
+  src/actuators/servo_monitor_node.cpp
 )
 ament_target_dependencies(servo_monitor_node rclcpp)
 rosidl_target_interfaces(servo_monitor_node
