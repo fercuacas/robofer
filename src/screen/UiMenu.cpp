@@ -1,11 +1,11 @@
-#include "robofer/screen/ui_menu.hpp"
+#include "robofer/screen/UiMenu.hpp"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
 
 namespace robo_ui {
 
 
-MenuController::Item MenuController::build_default_tree(){
+MenuController::Item MenuController::buildDefaultTree(){
   Item root; root.label = "Menu"; root.is_submenu = true;
 
   Item modos; modos.label = "Modos"; modos.is_submenu = true;
@@ -26,14 +26,14 @@ MenuController::Item MenuController::build_default_tree(){
 
 MenuController::MenuController(std::function<void(MenuAction)> on_action)
   : on_action_(std::move(on_action)) {
-  root_ = build_default_tree();
+  root_ = buildDefaultTree();
   last_key_time_ = clock::now() - std::chrono::hours(1);
 }
 
-void MenuController::set_timeout_ms(int ms){ timeout_ms_ = std::max(0, ms); }
-void MenuController::set_font_scale(double s){ font_scale_ = std::clamp(s, 0.1, 2.0); }
+void MenuController::setTimeoutMs(int ms){ timeout_ms_ = std::max(0, ms); }
+void MenuController::setFontScale(double s){ font_scale_ = std::clamp(s, 0.1, 2.0); }
 
-void MenuController::set_wifi_status(bool connected, const std::string& ssid){
+void MenuController::setWifiStatus(bool connected, const std::string& ssid){
   if(root_.children.size() > 1){
     Item& wifi = root_.children[1];
     if(wifi.label == "Wi-Fi" && wifi.children.size() >= 2){
@@ -44,12 +44,12 @@ void MenuController::set_wifi_status(bool connected, const std::string& ssid){
   }
 }
 
-bool MenuController::is_active() const {
+bool MenuController::isActive() const {
   auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - last_key_time_).count();
   return dt < timeout_ms_;
 }
 
-void MenuController::on_key(UiKey key){
+void MenuController::onKey(UiKey key){
   last_key_time_ = clock::now();
   switch(key){
     case UiKey::UP:   up();   break;
@@ -60,11 +60,11 @@ void MenuController::on_key(UiKey key){
 }
 
 void MenuController::draw(cv::Mat& canvas){
-  if(!is_active()) return;
-  draw_panel(canvas);
+  if(!isActive()) return;
+  drawPanel(canvas);
 }
 
-const MenuController::Item* MenuController::current_menu() const {
+const MenuController::Item* MenuController::currentMenu() const {
   const Item* cur = &root_;
   for(int idx : path_){
     if(idx < 0 || idx >= (int)cur->children.size()) return &root_;
@@ -73,7 +73,7 @@ const MenuController::Item* MenuController::current_menu() const {
   return cur;
 }
 
-MenuController::Item* MenuController::current_menu(){
+MenuController::Item* MenuController::currentMenu(){
   Item* cur = &root_;
   for(int idx : path_){
     if(idx < 0 || idx >= (int)cur->children.size()) return &root_;
@@ -83,13 +83,13 @@ MenuController::Item* MenuController::current_menu(){
 }
 
 void MenuController::up(){
-  const Item* menu = current_menu();
+  const Item* menu = currentMenu();
   if(menu->children.empty()) return;
   sel_ = (sel_ - 1 + (int)menu->children.size()) % (int)menu->children.size();
 }
 
 void MenuController::down(){
-  const Item* menu = current_menu();
+  const Item* menu = currentMenu();
   if(menu->children.empty()) return;
   sel_ = (sel_ + 1) % (int)menu->children.size();
 }
@@ -102,7 +102,7 @@ void MenuController::back(){
 }
 
 void MenuController::enter(){
-  Item* menu = current_menu();
+  Item* menu = currentMenu();
   if(menu->children.empty()) return;
   Item& it = menu->children[sel_];
   if(it.is_submenu){
@@ -117,9 +117,9 @@ void MenuController::dispatch(MenuAction a){
   if(on_action_) on_action_(a);
 }
 
-void MenuController::draw_panel(cv::Mat& canvas){
+void MenuController::drawPanel(cv::Mat& canvas){
   const int W = canvas.cols, H = canvas.rows;
-  Item* menu = current_menu();
+  Item* menu = currentMenu();
 
 
   // Determine width based on longest label
@@ -159,17 +159,17 @@ void MenuController::draw_panel(cv::Mat& canvas){
   cv::rectangle(canvas, cv::Rect(x, y, panel_w, panel_h),
                 cv::Scalar(200,200,200), 1, cv::LINE_8);
 
-  draw_header(canvas, menu->label, x, y, panel_w, text_pad);
+  drawHeader(canvas, menu->label, x, y, panel_w, text_pad);
 
   // Update offset to keep selection visible
   if(sel_ < offset_) offset_ = sel_;
   if(sel_ >= offset_ + visible) offset_ = sel_ - visible + 1;
   offset_ = std::clamp(offset_, 0, std::max(0, (int)menu->children.size() - visible));
 
-  draw_items(canvas, menu->children, x, y + header_h + text_pad, panel_w, line_h, offset_, visible, text_pad);
+  drawItems(canvas, menu->children, x, y + header_h + text_pad, panel_w, line_h, offset_, visible, text_pad);
 }
 
-void MenuController::draw_header(cv::Mat& img, const std::string& title, int x, int y, int w, int pad){
+void MenuController::drawHeader(cv::Mat& img, const std::string& title, int x, int y, int w, int pad){
   int baseline=0;
   cv::Size sz = cv::getTextSize(title, cv::FONT_HERSHEY_SIMPLEX, font_scale_, 1, &baseline);
   int tx = x + pad + 2;
@@ -180,8 +180,8 @@ void MenuController::draw_header(cv::Mat& img, const std::string& title, int x, 
               font_scale_, cv::Scalar(0,0,0), 1, cv::LINE_8);
 }
 
-void MenuController::draw_items(cv::Mat& img, const std::vector<Item>& items, int x, int y,
-                                int w, int line_h, int start, int max_items, int pad){
+void MenuController::drawItems(cv::Mat& img, const std::vector<Item>& items, int x, int y,
+                               int w, int line_h, int start, int max_items, int pad){
   for(int row=0; row<max_items && start+row<(int)items.size(); ++row){
     int i = start + row;
     const auto& it = items[i];

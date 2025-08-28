@@ -15,19 +15,19 @@ namespace robo_input {
  * @brief Helper class that watches a GPIO line for button presses.
  */
 struct ButtonWatcher {
-  std::string chip_name{"gpiochip0"};
-  int offset{-1};
-  int ui_code{0};
-  bool rising_on_press{true};
-  int debounce_ms{150};
+  std::string chip_name_{"gpiochip0"};
+  int offset_{-1};
+  int ui_code_{0};
+  bool rising_on_press_{true};
+  int debounce_ms_{150};
 
-  rclcpp::Logger logger;
-  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr pub;
+  rclcpp::Logger logger_;
+  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr pub_;
 
-  gpiod_chip* chip{nullptr};
-  gpiod_line* line{nullptr};
-  std::thread th;
-  std::atomic<bool> running{false};
+  gpiod_chip* chip_{nullptr};
+  gpiod_line* line_{nullptr};
+  std::thread thread_;
+  std::atomic<bool> running_{false};
 
   ButtonWatcher(rclcpp::Node& node,
                 const std::string& chip,

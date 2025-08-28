@@ -44,7 +44,7 @@ public:
    * @param id Servo identifier.
    * @param deg_per_sec Speed in degrees per second (positive = clockwise).
    */
-  void set_speed(int id, float deg_per_sec);
+  void setSpeed(int id, float deg_per_sec);
 
   /**
    * @brief Move servo to a target angle at a given speed.
@@ -52,7 +52,7 @@ public:
    * @param angle_deg Target angle in degrees.
    * @param speed_deg_per_sec Speed in degrees per second.
    */
-  void move_to(int id, float angle_deg, float speed_deg_per_sec);
+  void moveTo(int id, float angle_deg, float speed_deg_per_sec);
 
   /**
    * @brief Stop any motion on the specified servo.
@@ -64,18 +64,18 @@ public:
    * @brief Move servo back to the idle (zero) angle.
    * @param id Servo identifier.
    */
-  void set_idle(int id);
+  void setIdle(int id);
 
 private:
   struct Servo {
-    int id{0};
-    gpiod_line *line{nullptr};
-    std::thread th;
-    std::atomic<bool> running{false};
-    std::atomic<float> current_angle{0.0f};
-    std::atomic<float> target_angle{0.0f};
-    std::atomic<float> speed{0.0f};
-    std::atomic<bool> has_target{false};
+    int id_{0};
+    gpiod_line *line_{nullptr};
+    std::thread thread_;
+    std::atomic<bool> running_{false};
+    std::atomic<float> current_angle_{0.0f};
+    std::atomic<float> target_angle_{0.0f};
+    std::atomic<float> speed_{0.0f};
+    std::atomic<bool> has_target_{false};
   };
 
   gpiod_chip *chip_{nullptr};
@@ -87,7 +87,7 @@ private:
    * @brief Worker thread that drives a single servo.
    * @param s Servo control block.
    */
-  void thread_func(Servo &s);
+  void threadFunc(Servo &s);
 };
 
 } // namespace robo_servos

@@ -1,4 +1,4 @@
-#include "robofer/screen/eyes.hpp"
+#include "robofer/screen/Eyes.hpp"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
 

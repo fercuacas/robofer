@@ -33,19 +33,19 @@ public:
    * @brief Define directories where audio files are searched.
    * @param paths List of directories to scan.
    */
-  void set_search_paths(const std::vector<std::string>& paths);
+  void setSearchPaths(const std::vector<std::string>& paths);
 
   /**
    * @brief Define file extensions that are considered audio files.
    * @param exts Allowed filename suffixes.
    */
-  void set_extensions(const std::vector<std::string>& exts);
+  void setExtensions(const std::vector<std::string>& exts);
 
   /**
    * @brief Set ALSA device name used by the external player.
    * @param dev Device identifier.
    */
-  void set_alsa_device(const std::string& dev);
+  void setAlsaDevice(const std::string& dev);
 
   /** @brief Rebuild the lookup table of available audio files. */
   void reindex();
@@ -66,7 +66,7 @@ public:
    * @brief Check whether an audio file is currently playing.
    * @return true if a child process is active.
    */
-  bool is_playing() const;
+  bool isPlaying() const;
 
 private:
   /**
@@ -74,21 +74,21 @@ private:
    * @param s Input string.
    * @return Lowercase copy.
    */
-  std::string to_lower(std::string s) const;
+  std::string toLower(std::string s) const;
 
   /**
    * @brief Resolve key or path to a concrete audio file on disk.
    * @param s Key or path.
    * @return Resolved path if found.
    */
-  std::optional<std::string> resolve_key_or_path(const std::string& s) const;
+  std::optional<std::string> resolveKeyOrPath(const std::string& s) const;
 
   /**
    * @brief Launch the external player process for the given file.
    * @param filepath Path to audio file.
    * @return true if process spawned.
    */
-  bool spawn_player(const std::string& filepath);
+  bool spawnPlayer(const std::string& filepath);
 
   std::vector<std::string> paths_;
   std::vector<std::string> exts_;

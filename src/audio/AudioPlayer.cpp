@@ -1,4 +1,4 @@
-#include "robofer/audio/audio_player.hpp"
+#include "robofer/audio/AudioPlayer.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -28,11 +28,11 @@ AudioPlayer::~AudioPlayer() {
   stop();
 }
 
-void AudioPlayer::set_search_paths(const std::vector<std::string>& paths){ paths_ = paths; }
-void AudioPlayer::set_extensions(const std::vector<std::string>& exts){ exts_ = exts; }
-void AudioPlayer::set_alsa_device(const std::string& dev){ alsa_dev_ = dev; }
+void AudioPlayer::setSearchPaths(const std::vector<std::string>& paths){ paths_ = paths; }
+void AudioPlayer::setExtensions(const std::vector<std::string>& exts){ exts_ = exts; }
+void AudioPlayer::setAlsaDevice(const std::string& dev){ alsa_dev_ = dev; }
 
-std::string AudioPlayer::to_lower(std::string s) const{
+std::string AudioPlayer::toLower(std::string s) const{
   std::transform(s.begin(), s.end(), s.begin(),
                  [](unsigned char c){ return std::tolower(c); });
   return s;
@@ -48,29 +48,29 @@ void AudioPlayer::reindex() {
       if(ec) continue;
       const auto& p = it->path();
       if(!fs::is_regular_file(p, ec)) continue;
-      std::string ext = to_lower(p.extension().string());
+      std::string ext = toLower(p.extension().string());
       if(std::find(exts_.begin(), exts_.end(), ext) == exts_.end()) continue;
-      std::string key = to_lower(p.stem().string());
+      std::string key = toLower(p.stem().string());
       index_[key] = fs::canonical(p, ec).string();
     }
   }
   std::cerr << "[AudioPlayer] Indexados " << index_.size() << " archivos.\n";
 }
 
-std::optional<std::string> AudioPlayer::resolve_key_or_path(const std::string& s) const {
+std::optional<std::string> AudioPlayer::resolveKeyOrPath(const std::string& s) const {
   fs::path p(s);
   std::error_code ec;
   if(fs::exists(p, ec) && fs::is_regular_file(p, ec)){
     return fs::canonical(p, ec).string();
   }
-  auto key = to_lower(s);
+  auto key = toLower(s);
   auto it = index_.find(key);
   if(it != index_.end()) return it->second;
   return std::nullopt;
 }
 
-bool AudioPlayer::spawn_player(const std::string& filepath){
-  std::string ext = to_lower(fs::path(filepath).extension().string());
+bool AudioPlayer::spawnPlayer(const std::string& filepath){
+  std::string ext = toLower(fs::path(filepath).extension().string());
   bool is_wav = (ext == ".wav");
   bool is_mp3 = (ext == ".mp3");
 
@@ -112,12 +112,12 @@ bool AudioPlayer::spawn_player(const std::string& filepath){
 }
 
 bool AudioPlayer::play(const std::string& key_or_path){
-  auto resolved = resolve_key_or_path(key_or_path);
+  auto resolved = resolveKeyOrPath(key_or_path);
   if(!resolved){
     std::cerr << "[AudioPlayer] No encontrado: " << key_or_path << "\n";
     return false;
   }
-  return spawn_player(*resolved);
+  return spawnPlayer(*resolved);
 }
 
 void AudioPlayer::stop(){
@@ -140,7 +140,7 @@ void AudioPlayer::stop(){
   child_pid_ = -1;
 }
 
-bool AudioPlayer::is_playing() const {
+bool AudioPlayer::isPlaying() const {
   if(child_pid_ <= 0) return false;
   return (kill(child_pid_, 0) == 0);
 }

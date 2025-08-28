@@ -23,19 +23,19 @@ public:
     status_pub_ = create_publisher<robofer::msg::WifiStatus>("/wifi/status", 10);
     get_status_srv_ = create_service<robofer::srv::WifiGetStatus>(
         "/wifi/get_status",
-        std::bind(&WifiManager::handle_get_status, this, std::placeholders::_1, std::placeholders::_2));
+        std::bind(&WifiManager::handleGetStatus, this, std::placeholders::_1, std::placeholders::_2));
     set_credentials_srv_ = create_service<robofer::srv::WifiSetCredentials>(
         "/wifi/set_credentials",
-        std::bind(&WifiManager::handle_set_credentials, this, std::placeholders::_1, std::placeholders::_2));
+        std::bind(&WifiManager::handleSetCredentials, this, std::placeholders::_1, std::placeholders::_2));
     scan_srv_ = create_service<robofer::srv::WifiScan>(
         "/wifi/scan",
-        std::bind(&WifiManager::handle_scan, this, std::placeholders::_1, std::placeholders::_2));
-    timer_ = create_wall_timer(5s, std::bind(&WifiManager::update_status, this));
-    update_status();
+        std::bind(&WifiManager::handleScan, this, std::placeholders::_1, std::placeholders::_2));
+    timer_ = create_wall_timer(5s, std::bind(&WifiManager::updateStatus, this));
+    updateStatus();
   }
 
 private:
-  robofer::msg::WifiStatus query_status(){
+  robofer::msg::WifiStatus queryStatus(){
     robofer::msg::WifiStatus st;
     std::array<char,128> buf{};
     std::unique_ptr<FILE, decltype(&pclose)> pipe(
@@ -52,8 +52,8 @@ private:
     return st;
   }
 
-  void update_status(){
-    auto st = query_status();
+  void updateStatus(){
+    auto st = queryStatus();
     {
       std::lock_guard<std::mutex> lk(mtx_);
       last_status_ = st;
@@ -61,16 +61,16 @@ private:
     status_pub_->publish(st);
   }
 
-  void handle_get_status(const std::shared_ptr<robofer::srv::WifiGetStatus::Request> req,
-                         std::shared_ptr<robofer::srv::WifiGetStatus::Response> res){
+  void handleGetStatus(const std::shared_ptr<robofer::srv::WifiGetStatus::Request> req,
+                       std::shared_ptr<robofer::srv::WifiGetStatus::Response> res){
     (void)req;
     std::lock_guard<std::mutex> lk(mtx_);
     res->connected = last_status_.connected;
     res->ssid = last_status_.ssid;
   }
 
-  void handle_set_credentials(const std::shared_ptr<robofer::srv::WifiSetCredentials::Request> req,
-                              std::shared_ptr<robofer::srv::WifiSetCredentials::Response> res){
+  void handleSetCredentials(const std::shared_ptr<robofer::srv::WifiSetCredentials::Request> req,
+                            std::shared_ptr<robofer::srv::WifiSetCredentials::Response> res){
     {
       std::lock_guard<std::mutex> lk(mtx_);
       ssid_ = req->ssid;
@@ -91,11 +91,11 @@ private:
     }
     res->success = (ret == 0);
     res->message = ret==0 ? "OK" : "nmcli failed";
-    update_status();
+    updateStatus();
   }
 
-  void handle_scan(const std::shared_ptr<robofer::srv::WifiScan::Request> req,
-                   std::shared_ptr<robofer::srv::WifiScan::Response> res){
+  void handleScan(const std::shared_ptr<robofer::srv::WifiScan::Request> req,
+                  std::shared_ptr<robofer::srv::WifiScan::Response> res){
     (void)req;
     std::unique_ptr<FILE, decltype(&pclose)> pipe(
         popen("nmcli -t -f SSID,SIGNAL,SECURITY dev wifi", "r"), pclose);

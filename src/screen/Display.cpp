@@ -1,4 +1,4 @@
-#include "robofer/screen/display.hpp"
+#include "robofer/screen/Display.hpp"
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>

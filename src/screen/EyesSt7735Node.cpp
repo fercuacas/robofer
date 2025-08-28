@@ -9,7 +9,7 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
-#include "robofer/screen/eyes.hpp"
+#include "robofer/screen/Eyes.hpp"
 
 using robo_eyes::RoboEyes;
 using robo_eyes::Mood;
