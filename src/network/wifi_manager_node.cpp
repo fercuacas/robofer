@@ -5,6 +5,9 @@
 #include <mutex>
 #include <sstream>
 #include <algorithm>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "robofer/msg/wifi_status.hpp"
 #include "robofer/msg/wifi_network.hpp"
@@ -73,8 +76,19 @@ private:
       ssid_ = req->ssid;
       pass_ = req->password;
     }
-    std::string cmd = "nmcli dev wifi connect '" + req->ssid + "' password '" + req->password + "'";
-    int ret = std::system(cmd.c_str());
+    // Execute nmcli without invoking a shell to avoid command injection
+    pid_t pid = fork();
+    int ret = -1;
+    if(pid == 0){
+      execlp("nmcli", "nmcli", "dev", "wifi", "connect", req->ssid.c_str(),
+             "password", req->password.c_str(), (char*)nullptr);
+      _exit(127); // exec only returns on failure
+    } else if(pid > 0){
+      int status = 0;
+      if(waitpid(pid, &status, 0) > 0 && WIFEXITED(status)){
+        ret = WEXITSTATUS(status);
+      }
+    }
     res->success = (ret == 0);
     res->message = ret==0 ? "OK" : "nmcli failed";
     update_status();
