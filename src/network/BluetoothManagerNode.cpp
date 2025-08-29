@@ -52,12 +52,36 @@ private:
             std::regex::icase);
         std::smatch m;
         if(std::regex_search(line, m, re_passkey)){
+          if(line.find("cancel") != std::string::npos){
+            {
+              std::lock_guard<std::mutex> lk(mtx_);
+              pending_code_.clear();
+            }
+            RCLCPP_INFO(this->get_logger(), "Passkey request canceled");
+            publishState();
+          } else {
+            {
+              std::lock_guard<std::mutex> lk(mtx_);
+              pending_code_ = m[1];
+            }
+            RCLCPP_INFO(this->get_logger(), "Passkey detected: %s", pending_code_.c_str());
+            publishState();
+          }
+          return;
+        }
+        if(line.find("Request canceled") != std::string::npos){
+          bool cleared = false;
           {
             std::lock_guard<std::mutex> lk(mtx_);
-            pending_code_ = m[1];
+            if(!pending_code_.empty()){
+              pending_code_.clear();
+              cleared = true;
+            }
           }
-          RCLCPP_INFO(this->get_logger(), "Passkey detected: %s", pending_code_.c_str());
-          publishState();
+          if(cleared){
+            RCLCPP_INFO(this->get_logger(), "Pairing request canceled");
+            publishState();
+          }
           return;
         }
         if(line.find("Pairing successful") != std::string::npos ||
