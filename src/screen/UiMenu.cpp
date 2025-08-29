@@ -26,6 +26,7 @@ MenuController::Item MenuController::buildDefaultTree(){
   bt.children.push_back({"Enable Bluetooth", false, MenuAction::BT_ON, {}});
   bt.children.push_back({"", false, MenuAction::NONE, {}});
   bt.children.push_back({"", false, MenuAction::NONE, {}});
+  bt.children.push_back({"", false, MenuAction::NONE, {}});
 
   Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
 
@@ -92,7 +93,7 @@ void MenuController::setBtState(const std::string& state, uint32_t code){
 void MenuController::setBluetoothState(bool enabled, const std::string& device){
   if(root_.children.size() > 2){
     Item& bt = root_.children[2];
-    if(bt.label == "Bluetooth" && bt.children.size() >= 4){
+    if(bt.label == "Bluetooth" && bt.children.size() >= 5){
       bt.children[0].label = std::string("Status: ") + (enabled ? "On" : "Off");
       bt.children[0].color = enabled ? cv::Scalar(0,255,0) : cv::Scalar(0,0,255);
       bt.children[1].label = enabled ? "Disable Bluetooth" : "Enable Bluetooth";
@@ -102,11 +103,15 @@ void MenuController::setBluetoothState(bool enabled, const std::string& device){
         bt.children[2].action = MenuAction::NONE;
         bt.children[3].label = "";
         bt.children[3].action = MenuAction::NONE;
+        bt.children[4].label = "";
+        bt.children[4].action = MenuAction::NONE;
       } else {
-        bt.children[2].label = std::string("Accept ") + device;
-        bt.children[2].action = MenuAction::BT_PAIR_ACCEPT;
-        bt.children[3].label = std::string("Reject ") + device;
-        bt.children[3].action = MenuAction::BT_PAIR_REJECT;
+        bt.children[2].label = std::string("PIN: ") + device;
+        bt.children[2].action = MenuAction::NONE;
+        bt.children[3].label = "Accept";
+        bt.children[3].action = MenuAction::BT_PAIR_ACCEPT;
+        bt.children[4].label = "Reject";
+        bt.children[4].action = MenuAction::BT_PAIR_REJECT;
       }
     }
   }
