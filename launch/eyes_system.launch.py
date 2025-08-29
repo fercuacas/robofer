@@ -153,7 +153,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument('rst_offset', default_value='78'))
     ld.add_action(DeclareLaunchArgument('cs_offset', default_value='233'))
     ld.add_action(DeclareLaunchArgument('spi_chunk', default_value='2048'))
-    ld.add_action(DeclareLaunchArgument('madctl', default_value='0'))
+    ld.add_action(DeclareLaunchArgument('madctl', default_value='96'))
     ld.add_action(DeclareLaunchArgument('invert', default_value='false'))
     ld.add_action(DeclareLaunchArgument('self_test', default_value='true'))
 
