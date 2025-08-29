@@ -2,11 +2,13 @@
 // persistente de `bluetoothctl` para poder aceptar/rechazar emparejamientos.
 
 #include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 #include <string>
 #include <regex>
 #include <mutex>
+#include <cstdlib>
 
 #include "robofer/bluetoothctl_agent.hpp"
 
@@ -16,6 +18,7 @@ class BluetoothManager : public rclcpp::Node {
 public:
   BluetoothManager() : Node("bluetooth_manager") {
     state_pub_ = create_publisher<std_msgs::msg::String>("/bluetooth/state", 10);
+    init_pub_ = create_publisher<std_msgs::msg::Empty>("/bt_prov/init", 10);
     power_srv_ = create_service<std_srvs::srv::SetBool>(
         "/bluetooth/power", std::bind(&BluetoothManager::handlePower, this, _1, _2));
     pair_srv_ = create_service<std_srvs::srv::SetBool>(
@@ -103,6 +106,11 @@ private:
             waiting_confirm_ = false;
           }
           RCLCPP_INFO(this->get_logger(), "Pairing successful");
+          std::system("sdptool add --channel=3 SP >/dev/null 2>&1");
+          // std::system(
+          //     "bluetoothctl trust 3C:B0:ED:BB:94:CE >/dev/null 2>&1");
+          init_pub_->publish(std_msgs::msg::Empty());
+          agent_.disableProvisionWindow();
           publishState();
         }
       });
@@ -154,6 +162,7 @@ private:
   }
 
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_pub_;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr init_pub_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr power_srv_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr pair_srv_;
   BluetoothctlAgent agent_;
