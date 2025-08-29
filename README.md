@@ -97,7 +97,7 @@ estado internamente a través de `/ui/button`.
 * `gpiochip_c` (`gpiochip0`)
 * `dc_offset=75`, `rst_offset=78`, `cs_offset=233` (ejemplo OPI Zero 3)
 * `spi_chunk=2048`
-* `madctl=0x00`, `invert=false`, `self_test=true`
+* `madctl=0x60`, `invert=false`, `self_test=true`
 
 **buttons_node**
 
@@ -198,7 +198,7 @@ ros2 launch robofer eyes_system.launch.py sim:=false \
   spi_device:=/dev/spidev1.0 spi_hz:=24000000 spi_chunk:=2048 \
   use_manual_cs:=true gpiochip_c:=gpiochip0 \
   dc_offset:=75 rst_offset:=78 cs_offset:=233 \
-  madctl:=0 invert:=false self_test:=true \
+  madctl:=96 invert:=false self_test:=true \
   btn1_offset:=66 btn2_offset:=67 btn3_offset:=71 btn4_offset:=72
 ```
 

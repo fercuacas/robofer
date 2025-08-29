@@ -105,7 +105,7 @@ public:
     lcd_h_        = node.declare_parameter<int>("lcd_height", 160);
     x_off_        = node.declare_parameter<int>("x_offset", 0);
     y_off_        = node.declare_parameter<int>("y_offset", 0);
-    madctl_       = uint8_t(node.declare_parameter<int>("madctl", 0x00));
+    madctl_       = uint8_t(node.declare_parameter<int>("madctl", 0x60));
     invert_       = node.declare_parameter<bool>("invert", false);
     self_test_    = node.declare_parameter<bool>("self_test", true);
     spi_chunk_    = (size_t)node.declare_parameter<int>("spi_chunk", 2048);
@@ -115,6 +115,12 @@ public:
     dc_offset_    = node.declare_parameter<int>("dc_offset", 75);
     rst_offset_   = node.declare_parameter<int>("rst_offset", 78);
     cs_offset_    = node.declare_parameter<int>("cs_offset", 233);
+
+    // Si el bit MV está activo, la pantalla rota 90° y se intercambian ancho/alto
+    if(madctl_ & 0x20) {
+      std::swap(lcd_w_, lcd_h_);
+      std::swap(x_off_, y_off_);
+    }
 
     // ====== Inicialización HW ======
     if(!dc_.request(gpiochip_c_.c_str(), dc_offset_, 0) ||
@@ -354,7 +360,7 @@ private:
   int         spi_hz_{24000000};
   int         lcd_w_{128}, lcd_h_{160};
   int         x_off_{0}, y_off_{0};
-  uint8_t     madctl_{0x00};
+  uint8_t     madctl_{0x60};
   bool        invert_{false};
   bool        self_test_{true};
   size_t      spi_chunk_{2048};
