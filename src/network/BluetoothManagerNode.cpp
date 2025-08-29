@@ -1,7 +1,14 @@
+// Este nodo controla el estado del adaptador Bluetooth utilizando un agente
+// persistente de `bluetoothctl` para poder aceptar/rechazar emparejamientos.
+
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 #include <string>
+#include <regex>
+#include <mutex>
+
+#include "robofer/bluetoothctl_agent.hpp"
 
 using namespace std::placeholders;
 
@@ -13,38 +20,59 @@ public:
         "/bluetooth/power", std::bind(&BluetoothManager::handlePower, this, _1, _2));
     pair_srv_ = create_service<std_srvs::srv::SetBool>(
         "/bluetooth/pair_response", std::bind(&BluetoothManager::handlePair, this, _1, _2));
-    pair_sub_ = create_subscription<std_msgs::msg::String>(
-        "/bluetooth/pair_request", 10,
-        std::bind(&BluetoothManager::onPairRequest, this, _1));
     publishState();
   }
 
 private:
   void publishState(){
+    std::lock_guard<std::mutex> lk(mtx_);
     std_msgs::msg::String msg;
     if(!enabled_){
       msg.data = "OFF";
-    } else if(pending_device_.empty()){
+    } else if(pending_code_.empty()){
       msg.data = "ON";
     } else {
-      msg.data = std::string("REQUEST:") + pending_device_;
+      msg.data = std::string("REQUEST:") + pending_code_;
     }
     state_pub_->publish(msg);
-  }
-
-  void onPairRequest(const std_msgs::msg::String::SharedPtr msg){
-    pending_device_ = msg->data;
-    publishState();
   }
 
   void handlePower(const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
                    std::shared_ptr<std_srvs::srv::SetBool::Response> res){
     enabled_ = req->data;
     if(enabled_){
-      std::system("bluetoothctl power on >/dev/null 2>&1");
+      bool ok = agent_.start([this](const std::string& line){
+        static const std::regex re_passkey(".*Confirm passkey\\s+(\\d{6}).*yes/no.*");
+        std::smatch m;
+        if(std::regex_match(line, m, re_passkey)){
+          {
+            std::lock_guard<std::mutex> lk(mtx_);
+            pending_code_ = m[1];
+          }
+          publishState();
+          return;
+        }
+        if(line.find("Pairing successful") != std::string::npos ||
+           line.find(" Paired: yes") != std::string::npos){
+          {
+            std::lock_guard<std::mutex> lk(mtx_);
+            pending_code_.clear();
+          }
+          publishState();
+        }
+      });
+      if(ok){
+        agent_.powerOn();
+        agent_.enableProvisionWindow();
+      }
     } else {
-      std::system("bluetoothctl power off >/dev/null 2>&1");
-      pending_device_.clear();
+      agent_.disableProvisionWindow();
+      agent_.powerOff();
+      agent_.stop();
+      {
+        std::lock_guard<std::mutex> lk(mtx_);
+        pending_code_.clear();
+      }
     }
     publishState();
     res->success = true;
@@ -53,19 +81,19 @@ private:
 
   void handlePair(const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
                   std::shared_ptr<std_srvs::srv::SetBool::Response> res){
-    if(pending_device_.empty()){
-      res->success = false;
-      res->message = "No request";
-      return;
+    {
+      std::lock_guard<std::mutex> lk(mtx_);
+      if(pending_code_.empty()){
+        res->success = false;
+        res->message = "No request";
+        return;
+      }
     }
-    if(req->data){
-      std::string cmd = std::string("bluetoothctl pair ") + pending_device_ + " >/dev/null 2>&1";
-      std::system(cmd.c_str());
-    } else {
-      std::string cmd = std::string("bluetoothctl reject ") + pending_device_ + " >/dev/null 2>&1";
-      std::system(cmd.c_str());
+    agent_.send(req->data ? "yes" : "no");
+    {
+      std::lock_guard<std::mutex> lk(mtx_);
+      pending_code_.clear();
     }
-    pending_device_.clear();
     publishState();
     res->success = true;
     res->message = req->data ? "paired" : "rejected";
@@ -74,9 +102,10 @@ private:
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_pub_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr power_srv_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr pair_srv_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr pair_sub_;
+  BluetoothctlAgent agent_;
   bool enabled_{false};
-  std::string pending_device_;
+  std::string pending_code_;
+  std::mutex mtx_;
 };
 
 int main(int argc, char** argv){

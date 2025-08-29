@@ -182,6 +182,8 @@ add_executable(bluetooth_manager_node
   src/network/BluetoothManagerNode.cpp
 )
 ament_target_dependencies(bluetooth_manager_node rclcpp std_msgs std_srvs)
+target_link_libraries(bluetooth_manager_node
+  robofer_bt_agent)
 rosidl_target_interfaces(bluetooth_manager_node
   ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
