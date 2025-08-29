@@ -99,13 +99,17 @@ private:
         }
 
         if (line.find("Pairing successful") != std::string::npos ||
-            line.find(" Paired: yes") != std::string::npos) {
+            line.find(" Paired: yes") != std::string::npos ||
+            line.find(" Connected: yes") != std::string::npos ||
+            line.find("ServicesResolved: yes") != std::string::npos) {
           {
             std::lock_guard<std::mutex> lk(mtx_);
             pending_code_.clear();
             waiting_confirm_ = false;
           }
-          RCLCPP_INFO(this->get_logger(), "Pairing successful");
+          RCLCPP_INFO(this->get_logger(),
+                      "Bluetooth link ready, publishing init: %s",
+                      line.c_str());
           std::system("sudo sdptool add --channel=3 SP >/dev/null 2>&1");
           // std::system(
           //     "bluetoothctl trust 3C:B0:ED:BB:94:CE >/dev/null 2>&1");
