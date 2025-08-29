@@ -1,4 +1,5 @@
 #include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <bluetooth/bluetooth.h>
@@ -23,6 +24,9 @@ class BtProvisionNode : public rclcpp::Node {
 public:
   BtProvisionNode() : Node("bt_provision_server") {
     state_pub_ = create_publisher<std_msgs::msg::String>("/wifi_prov/state", 10);
+    init_sub_ = create_subscription<std_msgs::msg::Empty>(
+        "/bt_prov/init", 10,
+        std::bind(&BtProvisionNode::initialize, this, std::placeholders::_1));
     start_srv_ = create_service<std_srvs::srv::Trigger>(
         "/wifi_prov/start",
         std::bind(&BtProvisionNode::handleStart, this, std::placeholders::_1, std::placeholders::_2));
@@ -126,6 +130,11 @@ private:
     }
   }
 
+  void initialize(const std_msgs::msg::Empty::SharedPtr msg){
+    (void)msg;
+    startServer();
+  }
+
   void startServer(){
     if(running_) return;
     running_ = true;
@@ -202,6 +211,7 @@ private:
   }
 
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_pub_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr init_sub_;
   rclcpp::Client<robofer::srv::WifiSetCredentials>::SharedPtr wifi_set_client_;
   rclcpp::Client<robofer::srv::WifiScan>::SharedPtr wifi_scan_client_;
   rclcpp::Client<robofer::srv::WifiGetStatus>::SharedPtr wifi_status_client_;
