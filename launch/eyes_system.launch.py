@@ -126,6 +126,13 @@ def generate_launch_description():
         output='screen',
     )
 
+    bt_node = Node(
+        package='robofer',
+        executable='bluetooth_manager_node',
+        name='bluetooth_manager_node',
+        output='screen',
+    )
+
     # ========= LAUNCH DESCRIPTION =========
     ld = LaunchDescription()
 
@@ -169,5 +176,6 @@ def generate_launch_description():
     ld.add_action(keyboard_node)
     ld.add_action(buttons_node)
     ld.add_action(wifi_node)
+    ld.add_action(bt_node)
 
     return ld

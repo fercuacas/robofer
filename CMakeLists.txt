@@ -168,6 +168,13 @@ ament_target_dependencies(wifi_manager_node rclcpp)
 rosidl_target_interfaces(wifi_manager_node
   ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
+add_executable(bluetooth_manager_node
+  src/network/BluetoothManagerNode.cpp
+)
+ament_target_dependencies(bluetooth_manager_node rclcpp std_msgs std_srvs)
+rosidl_target_interfaces(bluetooth_manager_node
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
 add_executable(bt_provision_node
   src/network/BtProvisionNode.cpp
 )
@@ -204,6 +211,7 @@ install(TARGETS
   state_handler_node
   servo_monitor_node
   wifi_manager_node
+  bluetooth_manager_node
   bt_provision_node
   DESTINATION lib/${PROJECT_NAME}
 )

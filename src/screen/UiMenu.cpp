@@ -21,9 +21,15 @@ MenuController::Item MenuController::buildDefaultTree(){
   wifi.children.push_back({"Reject", false, MenuAction::BT_REJECT, {}});
   wifi.children.push_back({"Stop provisioning", false, MenuAction::BT_STOP, {}});
 
+  Item bt; bt.label = "Bluetooth"; bt.is_submenu = true;
+  bt.children.push_back({"Status: Off", false, MenuAction::NONE, {}});
+  bt.children.push_back({"Enable Bluetooth", false, MenuAction::BT_ON, {}});
+  bt.children.push_back({"", false, MenuAction::NONE, {}});
+  bt.children.push_back({"", false, MenuAction::NONE, {}});
+
   Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
 
-  root.children = {modos, wifi, apagar};
+  root.children = {modos, wifi, bt, apagar};
   return root;
 }
 
@@ -78,6 +84,29 @@ void MenuController::setBtState(const std::string& state, uint32_t code){
       } else {
         wifi.children[5].label = "Stop provisioning";
         wifi.children[5].action = MenuAction::BT_STOP;
+      }
+    }
+  }
+}
+
+void MenuController::setBluetoothState(bool enabled, const std::string& device){
+  if(root_.children.size() > 2){
+    Item& bt = root_.children[2];
+    if(bt.label == "Bluetooth" && bt.children.size() >= 4){
+      bt.children[0].label = std::string("Status: ") + (enabled ? "On" : "Off");
+      bt.children[0].color = enabled ? cv::Scalar(0,255,0) : cv::Scalar(0,0,255);
+      bt.children[1].label = enabled ? "Disable Bluetooth" : "Enable Bluetooth";
+      bt.children[1].action = enabled ? MenuAction::BT_OFF : MenuAction::BT_ON;
+      if(device.empty()){
+        bt.children[2].label = "";
+        bt.children[2].action = MenuAction::NONE;
+        bt.children[3].label = "";
+        bt.children[3].action = MenuAction::NONE;
+      } else {
+        bt.children[2].label = std::string("Accept ") + device;
+        bt.children[2].action = MenuAction::BT_PAIR_ACCEPT;
+        bt.children[3].label = std::string("Reject ") + device;
+        bt.children[3].action = MenuAction::BT_PAIR_REJECT;
       }
     }
   }

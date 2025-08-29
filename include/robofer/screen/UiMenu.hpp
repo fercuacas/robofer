@@ -26,6 +26,10 @@ enum class MenuAction {
   BT_ACCEPT,
   BT_REJECT,
   BT_STOP,
+  BT_ON,
+  BT_OFF,
+  BT_PAIR_ACCEPT,
+  BT_PAIR_REJECT,
 };
 
 /**
@@ -75,6 +79,7 @@ public:
 
   void setWifiStatus(bool connected, const std::string& ssid);
   void setBtState(const std::string& state, uint32_t code);
+  void setBluetoothState(bool enabled, const std::string& device);
 
 private:
   struct Item {
