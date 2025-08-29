@@ -24,4 +24,10 @@ def generate_launch_description():
             name='wifi_manager',
             output='screen',
         ),
+        Node(
+            package='robofer',
+            executable='bluetooth_manager_node',
+            name='bluetooth_manager',
+            output='screen',
+        ),
     ])

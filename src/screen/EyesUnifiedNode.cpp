@@ -3,6 +3,7 @@
 #include <std_msgs/msg/u_int8.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <std_srvs/srv/set_bool.hpp>
 #include "robofer/srv/set_bool_with_code.hpp"
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -29,6 +30,8 @@ struct ActionDispatcher {
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr bt_start_client;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr bt_stop_client;
   rclcpp::Client<robofer::srv::SetBoolWithCode>::SharedPtr bt_confirm_client;
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr bt_power_client;
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr bt_pair_client;
   std::atomic<uint32_t>* pending_code;
   void operator()(MenuAction a){
     std_msgs::msg::UInt8 m;
@@ -84,6 +87,38 @@ struct ActionDispatcher {
           bt_confirm_client->async_send_request(req);
         }
         break;
+      case MenuAction::BT_ON:
+        RCLCPP_INFO(log, "MenuAction: BT_ON");
+        if(bt_power_client){
+          auto req = std::make_shared<std_srvs::srv::SetBool::Request>();
+          req->data = true;
+          bt_power_client->async_send_request(req);
+        }
+        break;
+      case MenuAction::BT_OFF:
+        RCLCPP_INFO(log, "MenuAction: BT_OFF");
+        if(bt_power_client){
+          auto req = std::make_shared<std_srvs::srv::SetBool::Request>();
+          req->data = false;
+          bt_power_client->async_send_request(req);
+        }
+        break;
+      case MenuAction::BT_PAIR_ACCEPT:
+        RCLCPP_INFO(log, "MenuAction: BT_PAIR_ACCEPT");
+        if(bt_pair_client){
+          auto req = std::make_shared<std_srvs::srv::SetBool::Request>();
+          req->data = true;
+          bt_pair_client->async_send_request(req);
+        }
+        break;
+      case MenuAction::BT_PAIR_REJECT:
+        RCLCPP_INFO(log, "MenuAction: BT_PAIR_REJECT");
+        if(bt_pair_client){
+          auto req = std::make_shared<std_srvs::srv::SetBool::Request>();
+          req->data = false;
+          bt_pair_client->async_send_request(req);
+        }
+        break;
       case MenuAction::NONE:
       default:
         break;
@@ -120,8 +155,10 @@ int main(int argc, char** argv){
   auto bt_start_client = node->create_client<std_srvs::srv::Trigger>("/wifi_prov/start");
   auto bt_stop_client  = node->create_client<std_srvs::srv::Trigger>("/wifi_prov/stop");
   auto bt_confirm_client = node->create_client<robofer::srv::SetBoolWithCode>("/wifi_prov/confirm");
+  auto bt_power_client = node->create_client<std_srvs::srv::SetBool>("/bluetooth/power");
+  auto bt_pair_client  = node->create_client<std_srvs::srv::SetBool>("/bluetooth/pair_response");
   std::atomic<uint32_t> pending_code{0};
-  ActionDispatcher dispatch{ log, mode_pub, bt_start_client, bt_stop_client, bt_confirm_client, &pending_code };
+  ActionDispatcher dispatch{ log, mode_pub, bt_start_client, bt_stop_client, bt_confirm_client, bt_power_client, bt_pair_client, &pending_code };
   MenuController   menu([&](MenuAction a){ dispatch(a); });
   menu.setTimeoutMs(menu_timeout_ms);
 
@@ -168,6 +205,22 @@ int main(int argc, char** argv){
       }
       pending_code.store(code);
       menu.setBtState(st, code);
+    });
+
+  auto bt_state_sub = node->create_subscription<std_msgs::msg::String>(
+    "/bluetooth/state", 10,
+    [&](const std_msgs::msg::String::SharedPtr msg){
+      std::lock_guard<std::mutex> lk(ui_mtx);
+      bool enabled = false;
+      std::string dev;
+      std::string s = msg->data;
+      if(s == "ON"){
+        enabled = true;
+      } else if(s.rfind("REQUEST:",0) == 0){
+        enabled = true;
+        dev = s.substr(8);
+      }
+      menu.setBluetoothState(enabled, dev);
     });
 
   while(rclcpp::ok()){
