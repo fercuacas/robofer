@@ -36,7 +36,8 @@ add_library(robofer_bt_agent
   src/bluetoothctl_agent.cpp
 )
 target_include_directories(robofer_bt_agent PUBLIC include)
-target_link_libraries(robofer_bt_agent PUBLIC pthread)
+ament_target_dependencies(robofer_bt_agent rclcpp)
+target_link_libraries(robofer_bt_agent pthread)
 
 # =========================================
 # 1) Librería de lógica de ojos

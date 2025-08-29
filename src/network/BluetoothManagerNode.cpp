@@ -21,6 +21,7 @@ public:
     pair_srv_ = create_service<std_srvs::srv::SetBool>(
         "/bluetooth/pair_response", std::bind(&BluetoothManager::handlePair, this, _1, _2));
     publishState();
+    RCLCPP_INFO(get_logger(), "BluetoothManager node initialized");
   }
 
 private:
@@ -34,14 +35,18 @@ private:
     } else {
       msg.data = std::string("REQUEST:") + pending_code_;
     }
+    RCLCPP_INFO(get_logger(), "Publishing state: %s", msg.data.c_str());
     state_pub_->publish(msg);
   }
 
   void handlePower(const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
                    std::shared_ptr<std_srvs::srv::SetBool::Response> res){
+    RCLCPP_INFO(get_logger(), "handlePower request: %s", req->data ? "ON" : "OFF");
     enabled_ = req->data;
     if(enabled_){
+      RCLCPP_INFO(get_logger(), "Starting bluetoothctl agent");
       bool ok = agent_.start([this](const std::string& line){
+        RCLCPP_INFO(this->get_logger(), "[btctl] %s", line.c_str());
         static const std::regex re_passkey(
             "(?:confirm|request).*?(?:passkey|pin(?:\\s+code)?)\\D*(\\d{4,6})",
             std::regex::icase);
@@ -51,6 +56,7 @@ private:
             std::lock_guard<std::mutex> lk(mtx_);
             pending_code_ = m[1];
           }
+          RCLCPP_INFO(this->get_logger(), "Passkey detected: %s", pending_code_.c_str());
           publishState();
           return;
         }
@@ -60,14 +66,18 @@ private:
             std::lock_guard<std::mutex> lk(mtx_);
             pending_code_.clear();
           }
+          RCLCPP_INFO(this->get_logger(), "Pairing successful");
           publishState();
         }
       });
+      RCLCPP_INFO(get_logger(), "Agent start result: %s", ok ? "OK" : "FAILED");
       if(ok){
+        RCLCPP_INFO(get_logger(), "Powering on and enabling provision window");
         agent_.powerOn();
         agent_.enableProvisionWindow();
       }
     } else {
+      RCLCPP_INFO(get_logger(), "Stopping bluetoothctl agent");
       agent_.disableProvisionWindow();
       agent_.powerOff();
       agent_.stop();
@@ -77,17 +87,20 @@ private:
       }
     }
     publishState();
+    RCLCPP_INFO(get_logger(), "handlePower completed: %s", enabled_ ? "ON" : "OFF");
     res->success = true;
     res->message = enabled_ ? "ON" : "OFF";
   }
 
   void handlePair(const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
                   std::shared_ptr<std_srvs::srv::SetBool::Response> res){
+    RCLCPP_INFO(get_logger(), "handlePair request: %s", req->data ? "accept" : "reject");
     {
       std::lock_guard<std::mutex> lk(mtx_);
       if(pending_code_.empty()){
         res->success = false;
         res->message = "No request";
+        RCLCPP_INFO(get_logger(), "No pending request to pair");
         return;
       }
     }
@@ -97,6 +110,7 @@ private:
       pending_code_.clear();
     }
     publishState();
+    RCLCPP_INFO(get_logger(), "Pair response sent: %s", req->data ? "paired" : "rejected");
     res->success = true;
     res->message = req->data ? "paired" : "rejected";
   }
