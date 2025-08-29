@@ -139,8 +139,8 @@ def generate_launch_description():
     # Args
     ld.add_action(DeclareLaunchArgument('sim', default_value='true'))
 
-    ld.add_action(DeclareLaunchArgument('eyes_width', default_value='128'))
-    ld.add_action(DeclareLaunchArgument('eyes_height', default_value='64'))
+    ld.add_action(DeclareLaunchArgument('eyes_width', default_value='160'))
+    ld.add_action(DeclareLaunchArgument('eyes_height', default_value='128'))
     ld.add_action(DeclareLaunchArgument('fps', default_value='30'))
     ld.add_action(DeclareLaunchArgument('menu_timeout_ms', default_value='5000'))
 
@@ -153,7 +153,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument('rst_offset', default_value='78'))
     ld.add_action(DeclareLaunchArgument('cs_offset', default_value='233'))
     ld.add_action(DeclareLaunchArgument('spi_chunk', default_value='2048'))
-    ld.add_action(DeclareLaunchArgument('madctl', default_value='96'))
+    ld.add_action(DeclareLaunchArgument('madctl', default_value='160'))
     ld.add_action(DeclareLaunchArgument('invert', default_value='false'))
     ld.add_action(DeclareLaunchArgument('self_test', default_value='true'))
 

@@ -105,7 +105,7 @@ public:
     lcd_h_        = node.declare_parameter<int>("lcd_height", 160);
     x_off_        = node.declare_parameter<int>("x_offset", 0);
     y_off_        = node.declare_parameter<int>("y_offset", 0);
-    madctl_       = uint8_t(node.declare_parameter<int>("madctl", 0x60));
+    madctl_       = uint8_t(node.declare_parameter<int>("madctl", 0xA0));
     invert_       = node.declare_parameter<bool>("invert", false);
     self_test_    = node.declare_parameter<bool>("self_test", true);
     spi_chunk_    = (size_t)node.declare_parameter<int>("spi_chunk", 2048);
@@ -360,7 +360,7 @@ private:
   int         spi_hz_{24000000};
   int         lcd_w_{128}, lcd_h_{160};
   int         x_off_{0}, y_off_{0};
-  uint8_t     madctl_{0x60};
+  uint8_t     madctl_{0xA0};
   bool        invert_{false};
   bool        self_test_{true};
   size_t      spi_chunk_{2048};

@@ -29,8 +29,8 @@ int main(int argc, char** argv){
   auto log = node->get_logger();
 
   std::string backend = node->declare_parameter<std::string>("backend", "st7735");
-  const int   eyes_w  = node->declare_parameter<int>("eyes_width",  128);
-  const int   eyes_h  = node->declare_parameter<int>("eyes_height", 64);
+  const int   eyes_w  = node->declare_parameter<int>("eyes_width",  160);
+  const int   eyes_h  = node->declare_parameter<int>("eyes_height", 128);
   const int   fps     = node->declare_parameter<int>("fps", 30);
   const int   menu_timeout_ms = node->declare_parameter<int>("menu_timeout_ms", 5000);
 
