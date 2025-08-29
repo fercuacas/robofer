@@ -99,9 +99,11 @@ int main(int argc, char** argv){
         bt_state = BtUiState::STARTING;
         update_bt_menu();
         bool ok = bt_agent.start([&](const std::string& line){
-          static const std::regex re_passkey(".*Confirm passkey\\s+(\\d{6}).*yes/no.*");
+          static const std::regex re_passkey(
+              "(?:confirm|request).*?(?:passkey|pin(?:\\s+code)?)\\D*(\\d{4,6})",
+              std::regex::icase);
           std::smatch m;
-          if(std::regex_match(line, m, re_passkey)){
+          if(std::regex_search(line, m, re_passkey)){
             last_passkey = m[1];
             bt_state = BtUiState::WAITING_CONFIRM;
             update_bt_menu();

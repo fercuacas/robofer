@@ -42,9 +42,11 @@ private:
     enabled_ = req->data;
     if(enabled_){
       bool ok = agent_.start([this](const std::string& line){
-        static const std::regex re_passkey(".*Confirm passkey\\s+(\\d{6}).*yes/no.*");
+        static const std::regex re_passkey(
+            "(?:confirm|request).*?(?:passkey|pin(?:\\s+code)?)\\D*(\\d{4,6})",
+            std::regex::icase);
         std::smatch m;
-        if(std::regex_match(line, m, re_passkey)){
+        if(std::regex_search(line, m, re_passkey)){
           {
             std::lock_guard<std::mutex> lk(mtx_);
             pending_code_ = m[1];
