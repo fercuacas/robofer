@@ -51,7 +51,7 @@ struct St7735 {
   GpioLine dc, rst, cs;        // DC, RESET y (opcional) CS manual
   bool use_manual_cs = true;
   uint16_t w=128, h=160;
-  uint8_t  madctl = 0x60;      // orientación
+  uint8_t  madctl = 0xA0;      // orientación
   uint16_t xofs=0, yofs=0;     // offsets
   bool invert=false;
   size_t spi_chunk = 4096;     // tamaño máx. por write()
@@ -253,7 +253,7 @@ int main(int argc, char** argv){
   int lcd_h = node->declare_parameter<int>("lcd_height", 160);
   int x_off = node->declare_parameter<int>("x_offset", 0);
   int y_off = node->declare_parameter<int>("y_offset", 0);
-  int mad   = node->declare_parameter<int>("madctl", 0x60);
+  int mad   = node->declare_parameter<int>("madctl", 0xA0);
   bool invert = node->declare_parameter<bool>("invert", false);
   bool self_test = node->declare_parameter<bool>("self_test", true);
   int spi_chunk = node->declare_parameter<int>("spi_chunk", 2048);
