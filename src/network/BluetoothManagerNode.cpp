@@ -53,8 +53,10 @@ private:
         std::smatch m;
         if(std::regex_search(line, m, re_passkey)){
           if(line.find("cancel") != std::string::npos){
-            std::lock_guard<std::mutex> lk(mtx_);
-            pending_code_.clear();
+            {
+              std::lock_guard<std::mutex> lk(mtx_);
+              pending_code_.clear();
+            }
             RCLCPP_INFO(this->get_logger(), "Passkey request canceled");
             publishState();
           } else {
@@ -68,9 +70,15 @@ private:
           return;
         }
         if(line.find("Request canceled") != std::string::npos){
-          std::lock_guard<std::mutex> lk(mtx_);
-          if(!pending_code_.empty()){
-            pending_code_.clear();
+          bool cleared = false;
+          {
+            std::lock_guard<std::mutex> lk(mtx_);
+            if(!pending_code_.empty()){
+              pending_code_.clear();
+              cleared = true;
+            }
+          }
+          if(cleared){
             RCLCPP_INFO(this->get_logger(), "Pairing request canceled");
             publishState();
           }
