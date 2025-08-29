@@ -106,7 +106,7 @@ private:
             waiting_confirm_ = false;
           }
           RCLCPP_INFO(this->get_logger(), "Pairing successful");
-          std::system("sdptool add --channel=3 SP >/dev/null 2>&1");
+          std::system("sudo sdptool add --channel=3 SP >/dev/null 2>&1");
           // std::system(
           //     "bluetoothctl trust 3C:B0:ED:BB:94:CE >/dev/null 2>&1");
           init_pub_->publish(std_msgs::msg::Empty());
