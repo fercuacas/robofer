@@ -30,6 +30,15 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 )
 
 # =========================================
+# Bluetoothctl agent library
+# =========================================
+add_library(robofer_bt_agent
+  src/bluetoothctl_agent.cpp
+)
+target_include_directories(robofer_bt_agent PUBLIC include)
+target_link_libraries(robofer_bt_agent PUBLIC pthread)
+
+# =========================================
 # 1) Librería de lógica de ojos
 # =========================================
 add_library(robo_eyes_lib SHARED
@@ -126,6 +135,7 @@ ament_target_dependencies(eyes_unified_node rclcpp std_msgs std_srvs)
 target_link_libraries(eyes_unified_node
   robo_eyes_lib
   robo_display
+  robofer_bt_agent
   ${OpenCV_LIBS}
 )
 rosidl_target_interfaces(eyes_unified_node
@@ -196,6 +206,7 @@ install(TARGETS
   robo_display
   robo_servos
   robo_audio
+  robofer_bt_agent
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
