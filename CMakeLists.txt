@@ -171,7 +171,7 @@ rosidl_target_interfaces(wifi_manager_node
 add_executable(bt_provision_node
   src/network/BtProvisionNode.cpp
 )
-ament_target_dependencies(bt_provision_node rclcpp)
+ament_target_dependencies(bt_provision_node rclcpp  std_msgs std_srvs)
 target_link_libraries(bt_provision_node bluetooth)
 rosidl_target_interfaces(bt_provision_node
   ${PROJECT_NAME} "rosidl_typesupport_cpp")
