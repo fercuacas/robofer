@@ -123,6 +123,8 @@ private:
         RCLCPP_INFO(get_logger(), "Powering on and enabling provision window");
         agent_.powerOn();
         agent_.enableProvisionWindow();
+        init_pub_->publish(std_msgs::msg::Empty{});
+
       }
     } else {
       RCLCPP_INFO(get_logger(), "Stopping bluetoothctl agent");
