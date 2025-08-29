@@ -30,10 +30,12 @@ private:
     std_msgs::msg::String msg;
     if(!enabled_){
       msg.data = "OFF";
-    } else if(pending_code_.empty()){
-      msg.data = "ON";
-    } else {
+    } else if(!pending_code_.empty()){
       msg.data = std::string("REQUEST:") + pending_code_;
+    } else if(waiting_confirm_){
+      msg.data = "WAITING";
+    } else {
+      msg.data = "ON";
     }
     RCLCPP_INFO(get_logger(), "Publishing state: %s", msg.data.c_str());
     state_pub_->publish(msg);
@@ -47,48 +49,58 @@ private:
       RCLCPP_INFO(get_logger(), "Starting bluetoothctl agent");
       bool ok = agent_.start([this](const std::string& line){
         RCLCPP_INFO(this->get_logger(), "[btctl] %s", line.c_str());
+
+        static const std::regex re_req_conf(R"(Request\s+confirmation)",
+                                            std::regex::icase);
         static const std::regex re_passkey(
-            "(?:confirm|request).*?(?:passkey|pin(?:\\s+code)?)\\D*(\\d{4,6})",
+            R"(Confirm\s+passkey\s+(\d{4,6})\s*\(yes/no\):)",
             std::regex::icase);
-        std::smatch m;
-        if(std::regex_search(line, m, re_passkey)){
-          if(line.find("cancel") != std::string::npos){
-            {
-              std::lock_guard<std::mutex> lk(mtx_);
-              pending_code_.clear();
-            }
-            RCLCPP_INFO(this->get_logger(), "Passkey request canceled");
-            publishState();
-          } else {
-            {
-              std::lock_guard<std::mutex> lk(mtx_);
-              pending_code_ = m[1];
-            }
-            RCLCPP_INFO(this->get_logger(), "Passkey detected: %s", pending_code_.c_str());
-            publishState();
+
+        if (std::regex_search(line, re_req_conf)) {
+          {
+            std::lock_guard<std::mutex> lk(mtx_);
+            waiting_confirm_ = true;
+            pending_code_.clear();
           }
+          publishState();
           return;
         }
-        if(line.find("Request canceled") != std::string::npos){
+
+        std::smatch m;
+        if (std::regex_search(line, m, re_passkey)) {
+          {
+            std::lock_guard<std::mutex> lk(mtx_);
+            pending_code_ = m[1];
+            waiting_confirm_ = true;
+          }
+          RCLCPP_INFO(this->get_logger(), "Passkey detected: %s", pending_code_.c_str());
+          publishState();
+          return;
+        }
+
+        if (line.find("Request canceled") != std::string::npos) {
           bool cleared = false;
           {
             std::lock_guard<std::mutex> lk(mtx_);
-            if(!pending_code_.empty()){
+            if (!pending_code_.empty() || waiting_confirm_) {
               pending_code_.clear();
+              waiting_confirm_ = false;
               cleared = true;
             }
           }
-          if(cleared){
+          if (cleared) {
             RCLCPP_INFO(this->get_logger(), "Pairing request canceled");
             publishState();
           }
           return;
         }
-        if(line.find("Pairing successful") != std::string::npos ||
-           line.find(" Paired: yes") != std::string::npos){
+
+        if (line.find("Pairing successful") != std::string::npos ||
+            line.find(" Paired: yes") != std::string::npos) {
           {
             std::lock_guard<std::mutex> lk(mtx_);
             pending_code_.clear();
+            waiting_confirm_ = false;
           }
           RCLCPP_INFO(this->get_logger(), "Pairing successful");
           publishState();
@@ -108,6 +120,7 @@ private:
       {
         std::lock_guard<std::mutex> lk(mtx_);
         pending_code_.clear();
+        waiting_confirm_ = false;
       }
     }
     publishState();
@@ -121,7 +134,7 @@ private:
     RCLCPP_INFO(get_logger(), "handlePair request: %s", req->data ? "accept" : "reject");
     {
       std::lock_guard<std::mutex> lk(mtx_);
-      if(pending_code_.empty()){
+      if(pending_code_.empty() && !waiting_confirm_){
         res->success = false;
         res->message = "No request";
         RCLCPP_INFO(get_logger(), "No pending request to pair");
@@ -132,6 +145,7 @@ private:
     {
       std::lock_guard<std::mutex> lk(mtx_);
       pending_code_.clear();
+      waiting_confirm_ = false;
     }
     publishState();
     RCLCPP_INFO(get_logger(), "Pair response sent: %s", req->data ? "paired" : "rejected");
@@ -145,6 +159,7 @@ private:
   BluetoothctlAgent agent_;
   bool enabled_{false};
   std::string pending_code_;
+  bool waiting_confirm_{false};
   std::mutex mtx_;
 };
 

@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <cstring>
 #include <iostream>
+#include <regex>
 #include <rclcpp/rclcpp.hpp>
 
 namespace {
@@ -67,16 +68,48 @@ bool BluetoothctlAgent::start(LineHandler on_line) {
   reader_ = std::thread([this, logger]() {
     std::string buf; buf.reserve(4096);
     char tmp[256];
+
+    // Patrones para prompts sin salto de línea
+    const std::regex re_passkey(
+        R"(Confirm\s+passkey\s+(\d{4,6})\s*\(yes/no\):)",
+        std::regex::icase);
+    const std::regex re_req_cancel(R"(Request\s+canceled)", std::regex::icase);
+
+    auto feed_line = [&](const std::string &line) {
+      RCLCPP_INFO(logger, "[btctl] %s", line.c_str());
+      if (on_line_)
+        on_line_(line);
+    };
+
     while (running_) {
       ssize_t n = ::read(out_fd_, tmp, sizeof(tmp));
-      if (n <= 0) break;
+      if (n <= 0)
+        break;
       buf.append(tmp, tmp + n);
-      std::size_t pos;
-      while ((pos = buf.find('\n')) != std::string::npos) {
+
+      // Procesa líneas completas
+      for (;;) {
+        std::size_t pos = buf.find('\n');
+        if (pos == std::string::npos)
+          break;
         std::string line = buf.substr(0, pos);
         buf.erase(0, pos + 1);
-        RCLCPP_INFO(logger, "[btctl] %s", line.c_str());
-        if (on_line_) on_line_(line);
+        feed_line(line);
+      }
+
+      // Busca prompts parciales sin '\n'
+      std::smatch m;
+      if (std::regex_search(buf, m, re_passkey)) {
+        std::string synthetic =
+            std::string("[agent] Confirm passkey ") + m[1].str() +
+            " (yes/no):";
+        feed_line(synthetic);
+        buf.erase(0, m.position() + m.length());
+      }
+
+      if (std::regex_search(buf, m, re_req_cancel)) {
+        feed_line("Request canceled");
+        buf.erase(0, m.position() + m.length());
       }
     }
   });
