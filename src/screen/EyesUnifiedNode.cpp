@@ -3,20 +3,19 @@
 #include <std_msgs/msg/u_int8.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/set_bool.hpp>
+#include <cstdlib>
 #include <regex>
-#include <filesystem>
-#include <cctype>
 #include "robofer/bluetoothctl_agent.hpp"
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <mutex>
 #include <algorithm>
-#include <vector>
 
 #include "robofer/screen/Eyes.hpp"
 #include "robofer/screen/Display.hpp"
 #include "robofer/screen/UiMenu.hpp"
 #include "robofer/screen/MusicMenu.hpp"
+#include "robofer/audio/AudioPlayer.hpp"
 #include "robofer/msg/wifi_status.hpp"
 
 using robo_eyes::RoboEyes;
@@ -61,6 +60,15 @@ int main(int argc, char** argv){
   enum class BtUiState { IDLE, STARTING, WAITING_CONFIRM, PAIRED, SPP_READY, CONNECTED, ERROR_ };
   BtUiState bt_state = BtUiState::IDLE;
   MenuController* menu_ptr = nullptr;
+
+  const char* home_env = std::getenv("HOME");
+  std::string music_dir = std::string(home_env ? home_env : "") + "/Music";
+  robo_audio::AudioPlayer audio_player;
+  audio_player.setSearchPaths({music_dir});
+  audio_player.reindex();
+  robo_ui::MusicMenu music_menu(audio_player);
+  bool music_mode = false;
+
   auto update_bt_menu = [&](){
     if(!menu_ptr) return;
     std::string st; uint32_t code = 0;
@@ -97,6 +105,10 @@ int main(int argc, char** argv){
       case MenuAction::POWEROFF:
         RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
         std::system("sudo poweroff &");
+        break;
+      case MenuAction::MUSIC_MENU:
+        RCLCPP_INFO(log, "MenuAction: MUSIC_MENU");
+        music_mode = true;
         break;
       case MenuAction::BT_CONNECT: {
         RCLCPP_INFO(log, "MenuAction: BT_CONNECT");
@@ -174,26 +186,6 @@ int main(int argc, char** argv){
   menu.setTimeoutMs(menu_timeout_ms);
   update_bt_menu();
 
-  std::vector<std::string> music_files;
-  const char* home_env = std::getenv("HOME");
-  std::string music_dir = std::string(home_env ? home_env : "") + "/Music";
-  namespace fs = std::filesystem;
-  std::error_code ec;
-  if(fs::exists(music_dir, ec) && fs::is_directory(music_dir, ec)){
-    for(const auto& entry : fs::directory_iterator(music_dir, ec)){
-      if(ec) break;
-      if(!entry.is_regular_file(ec)) continue;
-      std::string ext = entry.path().extension().string();
-      std::transform(ext.begin(), ext.end(), ext.begin(),
-                     [](unsigned char c){ return std::tolower(c); });
-      if(ext == ".wav" || ext == ".mp3"){
-        music_files.push_back(entry.path().filename().string());
-      }
-    }
-    std::sort(music_files.begin(), music_files.end());
-  }
-  menu.setMusicFiles(music_files);
-
   std::mutex ui_mtx;
   auto sub_ui = node->create_subscription<std_msgs::msg::Int32>(
     "/ui/button", 10,
@@ -201,7 +193,17 @@ int main(int argc, char** argv){
       std::lock_guard<std::mutex> lk(ui_mtx);
       int v = msg->data;
       if(v < 0 || v > 3) return;
-      menu.onKey(static_cast<UiKey>(v));
+      UiKey key = static_cast<UiKey>(v);
+      if(music_mode){
+        bool playing_before = audio_player.isPlaying();
+        music_menu.onKey(key);
+        if(key == UiKey::BACK && !playing_before && !audio_player.isPlaying()){
+          music_mode = false;
+          menu.onKey(UiKey::BACK);
+        }
+      } else {
+        menu.onKey(key);
+      }
     });
 
   auto sub_mood = node->create_subscription<std_msgs::msg::UInt8>(
@@ -216,7 +218,9 @@ int main(int argc, char** argv){
 
   int DW = display->width();   if(DW <= 0) DW = eyes_w;
   int DH = display->height();  if(DH <= 0) DH = eyes_h;
-  menu.setFontScale(std::clamp(DH / 200.0, 0.1, 1.0));
+  double font_scale = std::clamp(DH / 200.0, 0.1, 1.0);
+  menu.setFontScale(font_scale);
+  music_menu.setFontScale(font_scale);
   cv::Mat canvas(DH, DW, CV_8UC3, cv::Scalar(0,0,0));
 
   auto wifi_sub = node->create_subscription<robofer::msg::WifiStatus>(
@@ -259,7 +263,11 @@ int main(int argc, char** argv){
 
     {
       std::lock_guard<std::mutex> lk(ui_mtx);
-      menu.draw(canvas);
+      if(music_mode){
+        music_menu.draw(canvas);
+      } else {
+        menu.draw(canvas);
+      }
     }
 
     display->pushMono8(canvas);

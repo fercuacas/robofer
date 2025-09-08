@@ -30,6 +30,7 @@ enum class MenuAction {
   BT_OFF,
   BT_PAIR_ACCEPT,
   BT_PAIR_REJECT,
+  MUSIC_MENU,
 };
 
 /**
