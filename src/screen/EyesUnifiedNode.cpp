@@ -216,8 +216,8 @@ int main(int argc, char** argv){
   RCLCPP_INFO(log, "Eyes+Menu @ %d FPS, backend=%s, display=%dx%d, eyes=%dx%d",
               fps, backend.c_str(), display->width(), display->height(), eyes_w, eyes_h);
 
-  int DW = display->width();   if(DW <= 0) DW = eyes_w;
-  int DH = display->height();  if(DH <= 0) DH = eyes_h;
+  int DW = std::max(display->width(), eyes_w);
+  int DH = std::max(display->height(), eyes_h);
   double font_scale = std::clamp(DH / 200.0, 0.1, 1.0);
   menu.setFontScale(font_scale);
   music_menu.setFontScale(font_scale);
