@@ -18,10 +18,19 @@ namespace fs = std::filesystem;
 namespace robo_audio {
 
 AudioPlayer::AudioPlayer(bool sim) {
-  paths_ = {"/opt/robofer/sounds", "/home/orangepi/Music", "/home/pi/Music"};
+  // Default search locations: built-in sounds plus a generic $HOME/Music
+  paths_.push_back("/opt/robofer/sounds");
+  if(const char* home = std::getenv("HOME")){
+    paths_.push_back(std::string(home) + "/Music");
+  }
+  // Legacy paths for specific boards
+  paths_.push_back("/home/orangepi/Music");
+  paths_.push_back("/home/pi/Music");
+
   exts_  = {".wav", ".mp3"};
-  if(!sim) {
-    alsa_dev_ = "hw:0,0";
+  // Use default ALSA device unless explicitly configured
+  if(!sim){
+    alsa_dev_.clear();
   }
 }
 
