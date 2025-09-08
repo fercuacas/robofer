@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <optional>
 #include <sys/types.h>
+#include <chrono>
 
 namespace robo_audio {
 
@@ -57,6 +58,12 @@ public:
    */
   bool play(const std::string& key_or_path);
 
+  /** @brief Pause current playback, if running. */
+  bool pause();
+
+  /** @brief Resume playback if it was paused. */
+  bool resume();
+
   /**
    * @brief Stop current playback, if any.
    */
@@ -67,6 +74,19 @@ public:
    * @return true if a child process is active.
    */
   bool isPlaying() const;
+
+  /** @brief Whether playback is currently paused. */
+  bool isPaused() const { return paused_; }
+
+  /** @brief Retrieve available track keys. */
+  std::vector<std::string> listTracks() const;
+
+  /**
+   * @brief Get duration of an audio file in seconds if possible.
+   * @param key_or_path Key or path to the audio file.
+   * @return Duration in seconds or negative on failure.
+   */
+  double getDuration(const std::string& key_or_path);
 
 private:
   /**
@@ -95,6 +115,9 @@ private:
   std::unordered_map<std::string, std::string> index_;
   std::string alsa_dev_;
   pid_t child_pid_{-1};
+  bool paused_{false};
+  std::string current_file_;
+  std::chrono::steady_clock::time_point start_time_;
 };
 
 } // namespace robo_audio

@@ -131,11 +131,13 @@ target_link_libraries(robo_eyes_st7735_node
 add_executable(eyes_unified_node
   src/screen/EyesUnifiedNode.cpp
   src/screen/UiMenu.cpp
+  src/screen/MusicMenu.cpp
 )
 ament_target_dependencies(eyes_unified_node rclcpp std_msgs std_srvs)
 target_link_libraries(eyes_unified_node
   robo_eyes_lib
   robo_display
+  robo_audio
   robofer_bt_agent
   ${OpenCV_LIBS}
 )
