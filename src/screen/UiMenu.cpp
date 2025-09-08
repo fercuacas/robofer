@@ -28,9 +28,12 @@ MenuController::Item MenuController::buildDefaultTree(){
   bt.children.push_back({"", false, MenuAction::NONE, {}});
   bt.children.push_back({"", false, MenuAction::NONE, {}});
 
+  Item music; music.label = "Music"; music.is_submenu = true;
+  music.children.push_back({"None", false, MenuAction::NONE, {}});
+
   Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
 
-  root.children = {modos, wifi, bt, apagar};
+  root.children = {modos, wifi, bt, music, apagar};
   return root;
 }
 
@@ -114,6 +117,21 @@ void MenuController::setBluetoothState(bool enabled, const std::string& device){
         bt.children[4].action = MenuAction::BT_PAIR_REJECT;
       }
     }
+  }
+}
+
+void MenuController::setMusicFiles(const std::vector<std::string>& files){
+  for(auto& it : root_.children){
+    if(it.label != "Music") continue;
+    it.children.clear();
+    if(files.empty()){
+      it.children.push_back({"None", false, MenuAction::NONE, {}});
+    } else {
+      for(const auto& f : files){
+        it.children.push_back({f, false, MenuAction::NONE, {}});
+      }
+    }
+    break;
   }
 }
 

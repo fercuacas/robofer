@@ -4,11 +4,14 @@
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 #include <regex>
+#include <filesystem>
+#include <cctype>
 #include "robofer/bluetoothctl_agent.hpp"
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <mutex>
 #include <algorithm>
+#include <vector>
 
 #include "robofer/screen/Eyes.hpp"
 #include "robofer/screen/Display.hpp"
@@ -169,6 +172,26 @@ int main(int argc, char** argv){
   menu_ptr = &menu;
   menu.setTimeoutMs(menu_timeout_ms);
   update_bt_menu();
+
+  std::vector<std::string> music_files;
+  const char* home_env = std::getenv("HOME");
+  std::string music_dir = std::string(home_env ? home_env : "") + "/Music";
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  if(fs::exists(music_dir, ec) && fs::is_directory(music_dir, ec)){
+    for(const auto& entry : fs::directory_iterator(music_dir, ec)){
+      if(ec) break;
+      if(!entry.is_regular_file(ec)) continue;
+      std::string ext = entry.path().extension().string();
+      std::transform(ext.begin(), ext.end(), ext.begin(),
+                     [](unsigned char c){ return std::tolower(c); });
+      if(ext == ".wav" || ext == ".mp3"){
+        music_files.push_back(entry.path().filename().string());
+      }
+    }
+    std::sort(music_files.begin(), music_files.end());
+  }
+  menu.setMusicFiles(music_files);
 
   std::mutex ui_mtx;
   auto sub_ui = node->create_subscription<std_msgs::msg::Int32>(
