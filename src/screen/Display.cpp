@@ -56,7 +56,7 @@ private:
   std::string title_;
   int scale_{6};
   int w_{0}, h_{0};             // opcional, si el usuario fuerza
-  int last_w_{128}, last_h_{64}; // recordado del último frame
+  int last_w_{0}, last_h_{0};   // recordado del último frame (0 = desconocido)
   bool window_ready_{false};
 };
 
