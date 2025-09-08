@@ -17,13 +17,17 @@ public:
   void onKey(UiKey key);
 
 private:
-  std::string formatTime(double sec) const;
-  void drawControls(cv::Mat& img, int x, int y, int w, int h, int pad);
+  enum class Mode { MENU, TRACKS };
+  Mode mode_{Mode::MENU};
+
+  void drawMenu(cv::Mat& canvas);
+  void drawTrackList(cv::Mat& canvas);
 
   robo_audio::AudioPlayer& player_;
   std::vector<std::string> tracks_;
-  int sel_{0};
-  int offset_{0};
+  int track_sel_{0};
+  int track_offset_{0};
+  int row_sel_{1};
   double font_scale_{0.15};
 
   bool playing_{false};
