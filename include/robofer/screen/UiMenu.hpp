@@ -80,6 +80,7 @@ public:
   void setWifiStatus(bool connected, const std::string& ssid);
   void setBtState(const std::string& state, uint32_t code);
   void setBluetoothState(bool enabled, const std::string& device);
+  void setMusicFiles(const std::vector<std::string>& files);
 
 private:
   struct Item {
