@@ -16,6 +16,7 @@
 #include "robofer/screen/Eyes.hpp"
 #include "robofer/screen/Display.hpp"
 #include "robofer/screen/UiMenu.hpp"
+#include "robofer/screen/MusicMenu.hpp"
 #include "robofer/msg/wifi_status.hpp"
 
 using robo_eyes::RoboEyes;

@@ -4,6 +4,7 @@
 #include <cctype>
 #include <csignal>
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
@@ -117,7 +118,11 @@ bool AudioPlayer::play(const std::string& key_or_path){
     std::cerr << "[AudioPlayer] No encontrado: " << key_or_path << "\n";
     return false;
   }
-  return spawnPlayer(*resolved);
+  if(!spawnPlayer(*resolved)) return false;
+  current_file_ = *resolved;
+  start_time_ = std::chrono::steady_clock::now();
+  paused_ = false;
+  return true;
 }
 
 void AudioPlayer::stop(){
@@ -138,11 +143,56 @@ void AudioPlayer::stop(){
   }
   std::cerr << "[AudioPlayer] Reproducción detenida.\n";
   child_pid_ = -1;
+  paused_ = false;
+  current_file_.clear();
 }
 
 bool AudioPlayer::isPlaying() const {
   if(child_pid_ <= 0) return false;
   return (kill(child_pid_, 0) == 0);
+}
+
+bool AudioPlayer::pause(){
+  if(child_pid_ <= 0) return false;
+  if(paused_) return true;
+  if(kill(child_pid_, SIGSTOP) == 0){
+    paused_ = true;
+    return true;
+  }
+  return false;
+}
+
+bool AudioPlayer::resume(){
+  if(child_pid_ <= 0) return false;
+  if(!paused_) return true;
+  if(kill(child_pid_, SIGCONT) == 0){
+    paused_ = false;
+    start_time_ = std::chrono::steady_clock::now();
+    return true;
+  }
+  return false;
+}
+
+std::vector<std::string> AudioPlayer::listTracks() const {
+  std::vector<std::string> keys;
+  keys.reserve(index_.size());
+  for(const auto& kv : index_) keys.push_back(kv.first);
+  std::sort(keys.begin(), keys.end());
+  return keys;
+}
+
+double AudioPlayer::getDuration(const std::string& key_or_path){
+  auto resolved = resolveKeyOrPath(key_or_path);
+  if(!resolved) return -1.0;
+  std::string cmd = std::string("ffprobe -v error -show_entries format=duration -of "
+                               "default=noprint_wrappers=1:nokey=1 \"") +
+                    *resolved + "\"";
+  FILE* fp = popen(cmd.c_str(), "r");
+  if(!fp) return -1.0;
+  char buf[128];
+  if(!fgets(buf, sizeof(buf), fp)){ pclose(fp); return -1.0; }
+  pclose(fp);
+  return std::atof(buf);
 }
 
 } // namespace robo_audio
