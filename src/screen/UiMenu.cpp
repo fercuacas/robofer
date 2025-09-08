@@ -28,8 +28,7 @@ MenuController::Item MenuController::buildDefaultTree(){
   bt.children.push_back({"", false, MenuAction::NONE, {}});
   bt.children.push_back({"", false, MenuAction::NONE, {}});
 
-  Item music; music.label = "Music"; music.is_submenu = true;
-  music.children.push_back({"None", false, MenuAction::NONE, {}});
+  Item music; music.label = "Music"; music.is_submenu = false; music.action = MenuAction::MUSIC_MENU;
 
   Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
 
