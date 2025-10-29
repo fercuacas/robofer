@@ -89,6 +89,13 @@ bool AudioPlayer::spawnPlayer(const std::string& filepath){
     return false;
   }
 
+  auto command = buildPlayerCommand(filepath, is_wav, is_mp3);
+  if(!command){
+    std::cerr << "[AudioPlayer] No se encontró reproductor compatible en el PATH."
+              << " Instala 'aplay', 'mpg123', 'ffmpeg' o 'ffplay'.\n";
+    return false;
+  }
+
   stop();
 
   child_pid_ = fork();
@@ -99,20 +106,14 @@ bool AudioPlayer::spawnPlayer(const std::string& filepath){
   }
 
   if(child_pid_ == 0){
-    if(is_wav){
-      if(alsa_dev_.empty()){
-        execlp("aplay", "aplay", filepath.c_str(), (char*)nullptr);
-      }else{
-        execlp("aplay", "aplay", "-D", alsa_dev_.c_str(), filepath.c_str(), (char*)nullptr);
-      }
-    } else {
-      if(alsa_dev_.empty()){
-        execlp("mpg123", "mpg123", filepath.c_str(), (char*)nullptr);
-      } else {
-        execlp("mpg123", "mpg123", "-a", alsa_dev_.c_str(), filepath.c_str(), (char*)nullptr);
-      }
+    std::vector<char*> argv;
+    argv.reserve(command->size() + 1);
+    for(auto& arg : *command){
+      argv.push_back(const_cast<char*>(arg.c_str()));
     }
-    std::perror("execlp");
+    argv.push_back(nullptr);
+    execvp(argv[0], argv.data());
+    std::perror("execvp");
     _exit(127);
   }
 
@@ -193,6 +194,11 @@ std::vector<std::string> AudioPlayer::listTracks() const {
 double AudioPlayer::getDuration(const std::string& key_or_path){
   auto resolved = resolveKeyOrPath(key_or_path);
   if(!resolved) return -1.0;
+  if(!commandExists("ffprobe")){
+    std::cerr << "[AudioPlayer] ffprobe no disponible, duración desconocida para "
+              << *resolved << "\n";
+    return -1.0;
+  }
   std::string cmd = std::string("ffprobe -v error -show_entries format=duration -of "
                                "default=noprint_wrappers=1:nokey=1 \"") +
                     *resolved + "\"";
@@ -202,6 +208,71 @@ double AudioPlayer::getDuration(const std::string& key_or_path){
   if(!fgets(buf, sizeof(buf), fp)){ pclose(fp); return -1.0; }
   pclose(fp);
   return std::atof(buf);
+}
+
+bool AudioPlayer::commandExists(const std::string& name) const{
+  if(name.empty()) return false;
+  if(name.find('/') != std::string::npos){
+    return access(name.c_str(), X_OK) == 0;
+  }
+  const char* path_env = std::getenv("PATH");
+  if(!path_env) return false;
+  std::string path(path_env);
+  size_t start = 0;
+  while(start <= path.size()){
+    size_t end = path.find(':', start);
+    std::string dir = path.substr(start, (end == std::string::npos) ? std::string::npos : end - start);
+    if(dir.empty()) dir = ".";
+    fs::path candidate = fs::path(dir) / name;
+    if(access(candidate.c_str(), X_OK) == 0){
+      return true;
+    }
+    if(end == std::string::npos) break;
+    start = end + 1;
+  }
+  return false;
+}
+
+std::optional<std::vector<std::string>> AudioPlayer::buildPlayerCommand(
+    const std::string& filepath, bool is_wav, bool is_mp3) const{
+  const std::string device = alsa_dev_;
+
+  if(is_wav && commandExists("aplay")){
+    std::vector<std::string> cmd = {"aplay"};
+    if(!device.empty()){
+      cmd.push_back("-D");
+      cmd.push_back(device);
+    }
+    cmd.push_back(filepath);
+    return cmd;
+  }
+
+  if(is_mp3 && commandExists("mpg123")){
+    std::vector<std::string> cmd = {"mpg123"};
+    if(!device.empty()){
+      cmd.push_back("-a");
+      cmd.push_back(device);
+    }
+    cmd.push_back(filepath);
+    return cmd;
+  }
+
+  if(commandExists("ffmpeg")){
+    std::vector<std::string> cmd = {
+        "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
+        "-i", filepath, "-f", "alsa",
+        device.empty() ? "default" : device};
+    return cmd;
+  }
+
+  if(commandExists("ffplay")){
+    std::vector<std::string> cmd = {
+        "ffplay", "-autoexit", "-nodisp", "-hide_banner", "-loglevel", "error",
+        filepath};
+    return cmd;
+  }
+
+  return std::nullopt;
 }
 
 } // namespace robo_audio
