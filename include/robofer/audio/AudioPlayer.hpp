@@ -110,6 +110,17 @@ private:
    */
   bool spawnPlayer(const std::string& filepath);
 
+  /**
+   * @brief Check whether an executable is available in PATH.
+   */
+  bool commandExists(const std::string& name) const;
+
+  /**
+   * @brief Build the command line used to play the provided file.
+   */
+  std::optional<std::vector<std::string>> buildPlayerCommand(
+      const std::string& filepath, bool is_wav, bool is_mp3) const;
+
   std::vector<std::string> paths_;
   std::vector<std::string> exts_;
   std::unordered_map<std::string, std::string> index_;
