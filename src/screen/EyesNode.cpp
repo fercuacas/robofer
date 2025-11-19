@@ -70,6 +70,7 @@ int main(int argc, char** argv){
   if(mood_s=="tired") eyes.setMood(Mood::TIRED);
   else if(mood_s=="angry") eyes.setMood(Mood::ANGRY);
   else if(mood_s=="happy") eyes.setMood(Mood::HAPPY);
+  else if(mood_s=="bailongo" || mood_s=="puxaine") eyes.setMood(Mood::BAILONGO);
   else eyes.setMood(Mood::DEFAULT);
 
   // Abrimos inicialmente (opcional)
@@ -99,6 +100,7 @@ int main(int argc, char** argv){
       case '2': eyes.setMood(Mood::ANGRY);  break;
       case '3': eyes.setMood(Mood::FROWN);  break;
       case '0': eyes.setMood(Mood::DEFAULT);break;
+      case '4': eyes.setMood(Mood::BAILONGO);break;
       case 'i': eyes.setIdle(true);  break;
       case 'I': eyes.setIdle(false); break;
       case 'c': curious=!curious; eyes.setCuriosity(curious); break;

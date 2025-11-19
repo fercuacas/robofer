@@ -53,10 +53,12 @@ private:
   class HappyState;
   class AngryState;
   class SadState;
+  class PuxaineState;
 
   friend class HappyState;
   friend class AngryState;
   friend class SadState;
+  friend class PuxaineState;
 
   /**
    * @brief Change the active mood/state.

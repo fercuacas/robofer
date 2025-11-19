@@ -1,10 +1,17 @@
 #include <functional>
 #include <chrono>
+#include <filesystem>
+#include <algorithm>
+#include <cctype>
+#include <vector>
+#include <cstdlib>
 #include "robofer/control/StateHandler.hpp"
 
 using namespace std::chrono_literals;
 
 namespace robofer {
+
+namespace fs = std::filesystem;
 
 // --- State implementations -------------------------------------------------
 
@@ -44,6 +51,98 @@ public:
     ctx.servos_.setIdle(1);
     if(ctx.audio_ && !ctx.sad_sound_.empty())
       ctx.audio_->play(ctx.sad_sound_);
+  }
+};
+
+class StateHandler::PuxaineState : public StateHandler::State {
+public:
+  void onEnter(StateHandler &ctx) override {
+    RCLCPP_INFO(ctx.get_logger(), "Entering PUXAINE state");
+    std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::BAILONGO);
+    ctx.mood_pub_->publish(msg);
+    ctx.servos_.setSpeed(0, 360.0f);
+    ctx.servos_.setSpeed(1,-360.0f);
+    loadPlaylist(ctx);
+    if(playlist_.empty()){
+      RCLCPP_WARN(ctx.get_logger(),
+                  "Modo Puxaine: no se encontraron pistas en %s",
+                  root_dir_.empty() ? "(desconocido)" : root_dir_.c_str());
+      return;
+    }
+    current_index_ = 0;
+    if(!startCurrent(ctx)){
+      advance(ctx);
+    }
+  }
+
+  void onUpdate(StateHandler &ctx) override {
+    if(playlist_.empty() || !ctx.audio_) return;
+    if(ctx.audio_->isPlaying()) return;
+    advance(ctx);
+  }
+
+  void onExit(StateHandler &ctx) override {
+    (void)ctx;
+    playlist_.clear();
+  }
+
+private:
+  std::vector<std::string> playlist_;
+  size_t current_index_{0};
+  std::string root_dir_;
+
+  static std::string toLower(const std::string& s){
+    std::string out(s);
+    std::transform(out.begin(), out.end(), out.begin(), [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
+    return out;
+  }
+
+  void loadPlaylist(StateHandler &ctx){
+    playlist_.clear();
+    root_dir_.clear();
+    const char* home = std::getenv("HOME");
+    if(!home){
+      RCLCPP_WARN(ctx.get_logger(), "Modo Puxaine: variable HOME no definida");
+      return;
+    }
+    fs::path dir = fs::path(home) / "Music" / "Pux";
+    root_dir_ = dir.string();
+    std::error_code ec;
+    if(!fs::exists(dir, ec) || !fs::is_directory(dir, ec)){
+      RCLCPP_WARN(ctx.get_logger(), "Modo Puxaine: directorio inexistente: %s", root_dir_.c_str());
+      return;
+    }
+
+    static const std::vector<std::string> kExts{".wav", ".mp3"};
+    for(fs::recursive_directory_iterator it(dir, ec), end; it != end; it.increment(ec)){
+      if(ec){ ec.clear(); continue; }
+      if(!it->is_regular_file()) continue;
+      std::string ext = toLower(it->path().extension().string());
+      if(std::find(kExts.begin(), kExts.end(), ext) == kExts.end()) continue;
+      playlist_.push_back(it->path().string());
+    }
+    std::sort(playlist_.begin(), playlist_.end());
+  }
+
+  bool startCurrent(StateHandler &ctx){
+    if(!ctx.audio_ || playlist_.empty()) return false;
+    const std::string& track = playlist_[current_index_];
+    if(ctx.audio_->play(track)){
+      RCLCPP_INFO(ctx.get_logger(), "Modo Puxaine: reproduciendo %s", track.c_str());
+      return true;
+    }
+    RCLCPP_WARN(ctx.get_logger(), "Modo Puxaine: no se pudo reproducir %s", track.c_str());
+    return false;
+  }
+
+  void advance(StateHandler &ctx){
+    if(playlist_.empty()) return;
+    size_t attempts = playlist_.size();
+    while(attempts-- > 0){
+      current_index_ = (current_index_ + 1) % playlist_.size();
+      if(startCurrent(ctx)) return;
+    }
+    RCLCPP_WARN(ctx.get_logger(), "Modo Puxaine: ninguna pista reproducible disponible");
   }
 };
 
@@ -97,6 +196,9 @@ void StateHandler::setState(Mood m) {
       break;
     case Mood::ANGRY:
       current_state_ = std::make_unique<AngryState>();
+      break;
+    case Mood::BAILONGO:
+      current_state_ = std::make_unique<PuxaineState>();
       break;
     case Mood::FROWN:
     default:
