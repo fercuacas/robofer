@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <chrono>
+#include <functional>
 #include "robofer/audio/AudioPlayer.hpp"
 #include "robofer/screen/UiMenu.hpp"
 #include <opencv2/core.hpp>
@@ -15,6 +16,10 @@ public:
   void setFontScale(double s);
   void draw(cv::Mat& canvas);
   void onKey(UiKey key);
+  bool isBailoteoActive() const { return bailoteo_mode_; }
+  void cancelBailoteo();
+  using BailoteoHandler = std::function<void(bool active, bool playing, bool paused)>;
+  void setBailoteoHandler(BailoteoHandler cb);
 
 private:
   enum class Mode { MENU, TRACKS };
@@ -22,6 +27,8 @@ private:
 
   void drawMenu(cv::Mat& canvas);
   void drawTrackList(cv::Mat& canvas);
+  void notifyBailoteoState();
+  void syncPlaybackState();
 
   robo_audio::AudioPlayer& player_;
   std::vector<std::string> tracks_;
@@ -36,6 +43,11 @@ private:
   double duration_{0.0};
   std::chrono::steady_clock::time_point start_time_;
   double paused_elapsed_{0.0};
+  bool bailoteo_mode_{false};
+  BailoteoHandler bailoteo_handler_{};
+  bool reported_active_{false};
+  bool reported_playing_{false};
+  bool reported_paused_{false};
 };
 
 } // namespace robo_ui

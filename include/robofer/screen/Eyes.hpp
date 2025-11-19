@@ -22,7 +22,15 @@ constexpr int BGCOLOR = 0;   /**< Background/overlays. */
 constexpr int MAINCOLOR = 255; /**< Drawings. */
 
 /** Mood presets used to adjust eye expression */
-enum Mood : uint8_t { DEFAULT = 0, TIRED = 1, ANGRY = 2, HAPPY = 3, FROWN = 4 };
+enum Mood : uint8_t {
+  DEFAULT = 0,
+  TIRED = 1,
+  ANGRY = 2,
+  HAPPY = 3,
+  FROWN = 4,
+  BAILOTEO_WAIT = 5,
+  BAILOTEO = 6
+};
 
 /** Predefined gaze positions */
 enum Pos : uint8_t { CENTER=0, N=1, NE=2, E=3, SE=4, S=5, SW=6, W=7, NW=8 };

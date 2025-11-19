@@ -1,5 +1,6 @@
 #include <functional>
 #include <chrono>
+#include <std_msgs/msg/bool.hpp>
 #include "robofer/control/StateHandler.hpp"
 
 using namespace std::chrono_literals;
@@ -12,8 +13,9 @@ class StateHandler::HappyState : public StateHandler::State {
 public:
   void onEnter(StateHandler &ctx) override {
     RCLCPP_INFO(ctx.get_logger(), "Entering HAPPY state");
-    std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::HAPPY);
-    ctx.mood_pub_->publish(msg);
+    ctx.publishMood(Mood::HAPPY);
+    ctx.publishIdle(true);
+    ctx.publishEyePos(robo_eyes::Pos::CENTER);
     ctx.servos_.setSpeed(0, 360.0f);
     ctx.servos_.setSpeed(1,-360.0f);
     if(ctx.audio_ && !ctx.happy_sound_.empty())
@@ -25,8 +27,9 @@ class StateHandler::AngryState : public StateHandler::State {
 public:
   void onEnter(StateHandler &ctx) override {
     RCLCPP_INFO(ctx.get_logger(), "Entering ANGRY state");
-    std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::ANGRY);
-    ctx.mood_pub_->publish(msg);
+    ctx.publishMood(Mood::ANGRY);
+    ctx.publishIdle(true);
+    ctx.publishEyePos(robo_eyes::Pos::CENTER);
     ctx.servos_.moveTo(0, 30.0f, 120.0f);
     ctx.servos_.moveTo(1,150.0f, 120.0f);
     if(ctx.audio_ && !ctx.angry_sound_.empty())
@@ -38,13 +41,55 @@ class StateHandler::SadState : public StateHandler::State {
 public:
   void onEnter(StateHandler &ctx) override {
     RCLCPP_INFO(ctx.get_logger(), "Entering SAD state");
-    std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::FROWN);
-    ctx.mood_pub_->publish(msg);
+    ctx.publishMood(Mood::FROWN);
+    ctx.publishIdle(true);
+    ctx.publishEyePos(robo_eyes::Pos::CENTER);
     ctx.servos_.setIdle(0);
     ctx.servos_.setIdle(1);
     if(ctx.audio_ && !ctx.sad_sound_.empty())
       ctx.audio_->play(ctx.sad_sound_);
   }
+};
+
+class StateHandler::BailoteoWaitingState : public StateHandler::State {
+public:
+  void onEnter(StateHandler &ctx) override {
+    RCLCPP_INFO(ctx.get_logger(), "Entering BAILOTEO_WAIT state");
+    ctx.publishMood(Mood::BAILOTEO_WAIT);
+    ctx.publishIdle(false);
+    ctx.publishEyePos(robo_eyes::Pos::CENTER);
+  }
+  void onExit(StateHandler &ctx) override {
+    ctx.publishEyePos(robo_eyes::Pos::CENTER);
+  }
+};
+
+class StateHandler::BailoteoState : public StateHandler::State {
+public:
+  void onEnter(StateHandler &ctx) override {
+    RCLCPP_INFO(ctx.get_logger(), "Entering BAILOTEO state");
+    ctx.publishMood(Mood::BAILOTEO);
+    ctx.publishIdle(false);
+    ctx.publishEyePos(robo_eyes::Pos::CENTER);
+    last_switch_ = std::chrono::steady_clock::now();
+    side_left_ = false;
+  }
+
+  void onUpdate(StateHandler &ctx) override {
+    auto now = std::chrono::steady_clock::now();
+    if(now - last_switch_ < std::chrono::milliseconds(400)) return;
+    last_switch_ = now;
+    side_left_ = !side_left_;
+    ctx.publishEyePos(side_left_ ? robo_eyes::Pos::W : robo_eyes::Pos::E);
+  }
+
+  void onExit(StateHandler &ctx) override {
+    ctx.publishEyePos(robo_eyes::Pos::CENTER);
+  }
+
+private:
+  bool side_left_{false};
+  std::chrono::steady_clock::time_point last_switch_{};
 };
 
 } // namespace robofer
@@ -70,6 +115,8 @@ StateHandler::StateHandler()
   sad_sound_ = declare_parameter<std::string>("sad_sound", "");
   RCLCPP_INFO(get_logger(), "State handler starting (sim=%s)", sim ? "true" : "false");
   mood_pub_ = create_publisher<std_msgs::msg::UInt8>("/eyes/mood", 10);
+  eye_pos_pub_ = create_publisher<std_msgs::msg::UInt8>("/eyes/pos", 10);
+  eye_idle_pub_ = create_publisher<std_msgs::msg::Bool>("/eyes/idle", 10);
   mode_sub_ = create_subscription<std_msgs::msg::UInt8>(
       "/mode", 10,
       std::bind(&StateHandler::modeCallback, this, std::placeholders::_1));
@@ -89,8 +136,14 @@ void StateHandler::modeCallback(const std_msgs::msg::UInt8::SharedPtr msg) {
 
 void StateHandler::setState(Mood m) {
   RCLCPP_INFO(get_logger(), "Changing state to %u", static_cast<unsigned>(m));
-  if (audio_) audio_->stop();
+
+  if(!isBailoteo(m)){
+    last_regular_mood_ = m;
+  }
+
+  if (audio_ && !isBailoteo(m)) audio_->stop();
   if (current_state_) current_state_->onExit(*this);
+
   switch (m) {
     case Mood::HAPPY:
       current_state_ = std::make_unique<HappyState>();
@@ -98,12 +151,40 @@ void StateHandler::setState(Mood m) {
     case Mood::ANGRY:
       current_state_ = std::make_unique<AngryState>();
       break;
+    case Mood::BAILOTEO:
+      current_state_ = std::make_unique<BailoteoState>();
+      break;
+    case Mood::BAILOTEO_WAIT:
+      current_state_ = std::make_unique<BailoteoWaitingState>();
+      break;
     case Mood::FROWN:
     default:
       current_state_ = std::make_unique<SadState>();
       break;
   }
-  current_state_->onEnter(*this);
+
+  if (current_state_) current_state_->onEnter(*this);
+}
+
+void StateHandler::publishMood(Mood m){
+  if(!mood_pub_) return;
+  std_msgs::msg::UInt8 msg;
+  msg.data = static_cast<uint8_t>(m);
+  mood_pub_->publish(msg);
+}
+
+void StateHandler::publishEyePos(robo_eyes::Pos pos){
+  if(!eye_pos_pub_) return;
+  std_msgs::msg::UInt8 msg;
+  msg.data = static_cast<uint8_t>(pos);
+  eye_pos_pub_->publish(msg);
+}
+
+void StateHandler::publishIdle(bool enabled){
+  if(!eye_idle_pub_) return;
+  std_msgs::msg::Bool msg;
+  msg.data = enabled;
+  eye_idle_pub_->publish(msg);
 }
 
 // --- main ------------------------------------------------------------------
@@ -115,4 +196,3 @@ int main(int argc, char **argv) {
   rclcpp::shutdown();
   return 0;
 }
-

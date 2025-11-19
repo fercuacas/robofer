@@ -70,7 +70,28 @@ void RoboEyes::setBorderRadius(int l, int r){ eyeL_r_next_=eyeL_r_def_=l; eyeR_r
 
 void RoboEyes::setSpaceBetween(int px){ spaceBetweenNext_=spaceBetweenDefault_=px; }
 
-void RoboEyes::setMood(Mood m){ tired_=angry_=happy_=frown_=false; if(m==TIRED) tired_=true; else if(m==ANGRY) angry_=true; else if(m==HAPPY) happy_=true; else if(m==FROWN) frown_=true;}
+void RoboEyes::setMood(Mood m){
+  tired_ = angry_ = happy_ = frown_ = false;
+  switch(m){
+    case TIRED:
+      tired_ = true;
+      break;
+    case ANGRY:
+      angry_ = true;
+      break;
+    case HAPPY:
+    case BAILOTEO:
+      happy_ = true;
+      break;
+    case FROWN:
+    case BAILOTEO_WAIT:
+      frown_ = true;
+      break;
+    case DEFAULT:
+    default:
+      break;
+  }
+}
 
 void RoboEyes::setPosition(Pos p){
   switch(p){
