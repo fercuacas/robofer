@@ -22,7 +22,7 @@ constexpr int BGCOLOR = 0;   /**< Background/overlays. */
 constexpr int MAINCOLOR = 255; /**< Drawings. */
 
 /** Mood presets used to adjust eye expression */
-enum Mood : uint8_t { DEFAULT = 0, TIRED = 1, ANGRY = 2, HAPPY = 3, FROWN = 4 };
+enum Mood : uint8_t { DEFAULT = 0, TIRED = 1, ANGRY = 2, HAPPY = 3, FROWN = 4, BAILONGO = 5 };
 
 /** Predefined gaze positions */
 enum Pos : uint8_t { CENTER=0, N=1, NE=2, E=3, SE=4, S=5, SW=6, W=7, NW=8 };
@@ -348,6 +348,7 @@ private:
   // mood flags
   bool tired_=false, angry_=false, happy_=false;
   bool frown_=false; // <— ceño fruncido
+  bool bailongo_=false;
   bool curious_=false; // outer eye grows when looking sideways
   bool cyclops_=false; // single eye
   bool eyeL_open_=false, eyeR_open_=false;
@@ -397,6 +398,12 @@ private:
   bool idle_=false; int idleInterval_s_=1, idleVar_s_=3; uint64_t idleTimer_=0;
   bool confused_=false; uint64_t confusedTimer_=0; int confusedDur_ms_=500; bool confusedToggle_=true;
   bool laugh_=false; uint64_t laughTimer_=0; int laughDur_ms_=500; bool laughToggle_=true;
+
+  double bailongo_phase_=0.0;
+  uint64_t bailongo_last_ms_=0;
+  int bailongo_h_amp_=0;
+  int bailongo_v_amp_=0;
+  int bailongo_space_amp_=0;
 
   // RNG
   std::mt19937 rng_;

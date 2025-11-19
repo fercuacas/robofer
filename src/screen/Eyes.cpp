@@ -1,6 +1,7 @@
 #include "robofer/screen/Eyes.hpp"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
+#include <cmath>
 
 using namespace robo_eyes;
 
@@ -57,6 +58,11 @@ void RoboEyes::begin(int w, int h, int fps){
   idleTimer_  = now + idleInterval_s_*1000  + rnd(std::max(0, idleVar_s_))*1000;
 
   fps_timer_ms_ = now;
+  bailongo_phase_ = 0.0;
+  bailongo_last_ms_ = 0;
+  bailongo_h_amp_ = std::max(2, screenConstraintX()/4);
+  bailongo_v_amp_ = std::max(2, screenConstraintY()/4);
+  bailongo_space_amp_ = std::max(1, spaceBetweenDefault_/4);
 }
 
 void RoboEyes::setFramerate(int fps){ frame_interval_ms_ = std::max(1, 1000/std::max(1,fps)); }
@@ -70,7 +76,28 @@ void RoboEyes::setBorderRadius(int l, int r){ eyeL_r_next_=eyeL_r_def_=l; eyeR_r
 
 void RoboEyes::setSpaceBetween(int px){ spaceBetweenNext_=spaceBetweenDefault_=px; }
 
-void RoboEyes::setMood(Mood m){ tired_=angry_=happy_=frown_=false; if(m==TIRED) tired_=true; else if(m==ANGRY) angry_=true; else if(m==HAPPY) happy_=true; else if(m==FROWN) frown_=true;}
+void RoboEyes::setMood(Mood m){
+  tired_=angry_=happy_=frown_=false;
+  bailongo_ = false;
+  if(m==TIRED) tired_=true;
+  else if(m==ANGRY) angry_=true;
+  else if(m==HAPPY) happy_=true;
+  else if(m==FROWN) frown_=true;
+  else if(m==BAILONGO){
+    bailongo_=true;
+    happy_=true; // sonrisa mientras baila
+    bailongo_phase_=0.0;
+    bailongo_last_ms_=0;
+    // centra los ojos para comenzar
+    eyeLx_next_=screenConstraintX()/2;
+    eyeLy_next_=screenConstraintY()/2;
+    spaceBetweenNext_=spaceBetweenDefault_;
+  }
+  if(!bailongo_){
+    bailongo_phase_=0.0;
+    bailongo_last_ms_=0;
+  }
+}
 
 void RoboEyes::setPosition(Pos p){
   switch(p){
@@ -281,11 +308,37 @@ void RoboEyes::drawEyes(){
     else if(t >= confusedTimer_ + confusedDur_ms_){ hFlicker_=false; confusedToggle_=true; confused_=false; }
   }
 
-  if(idle_ && !frown_){
+  if(idle_ && !frown_ && !bailongo_){
     if(t >= idleTimer_){
       eyeLx_next_ = rnd(std::max(0, screenConstraintX()));
       eyeLy_next_ = rnd(std::max(0, screenConstraintY()));
       idleTimer_ = t + idleInterval_s_*1000 + rnd(std::max(0, idleVar_s_))*1000;
+    }
+  }
+
+  if(bailongo_){
+    if(bailongo_last_ms_ == 0){
+      bailongo_last_ms_ = t;
+    }
+    double dt = static_cast<double>(t - bailongo_last_ms_) / 1000.0;
+    bailongo_last_ms_ = t;
+    const double speed = 3.5; // radianes por segundo
+    bailongo_phase_ += dt * speed;
+    const double main_phase = bailongo_phase_;
+    const double second_phase = bailongo_phase_ * 1.6;
+    int cx = screenConstraintX()/2;
+    int cy = screenConstraintY()/2;
+    int nx = clampi(cx + static_cast<int>(std::sin(main_phase) * bailongo_h_amp_), 0, screenConstraintX());
+    int ny = clampi(cy + static_cast<int>(std::cos(second_phase) * bailongo_v_amp_), 0, screenConstraintY());
+    int spacing = clampi(spaceBetweenDefault_ + static_cast<int>(std::sin(main_phase*2.0) * bailongo_space_amp_), 4, std::max(4, screenConstraintX()));
+    eyeLx_next_ = nx;
+    eyeLy_next_ = ny;
+    spaceBetweenNext_ = spacing;
+    // alterna pequeños guiños en ritmo
+    constexpr double kPi = 3.14159265358979323846;
+    double blink_phase = std::fmod(bailongo_phase_, kPi);
+    if(blink_phase < 0.15){
+      blinkBoth();
     }
   }
 

@@ -102,6 +102,11 @@ int main(int argc, char** argv){
         mode_pub->publish(m);
         RCLCPP_INFO(log, "MenuAction -> mode HAPPY");
         break;
+      case MenuAction::SET_PUXAINE:
+        m.data = static_cast<uint8_t>(Mood::BAILONGO);
+        mode_pub->publish(m);
+        RCLCPP_INFO(log, "MenuAction -> mode PUXAINE");
+        break;
       case MenuAction::POWEROFF:
         RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
         std::system("sudo poweroff &");
