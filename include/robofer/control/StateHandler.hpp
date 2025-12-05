@@ -3,6 +3,7 @@
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/u_int8.hpp>
+#include <std_msgs/msg/bool.hpp>
 
 #include "robofer/actuators/ControlServo.hpp"
 #include "robofer/screen/Eyes.hpp"
@@ -54,17 +55,40 @@ private:
   class AngryState;
   class SadState;
   class LoveState;
+  class BailoteoState;
+  class BailoteoWaitingState;
 
   friend class HappyState;
   friend class AngryState;
   friend class SadState;
   friend class LoveState;
+  friend class BailoteoState;
+  friend class BailoteoWaitingState;
 
   /**
    * @brief Change the active mood/state.
    * @param m Desired mood.
    */
   void setState(Mood m);
+
+  /**
+   * @brief Publish a mood update to the eyes node.
+   */
+  void publishMood(Mood m);
+
+  /**
+   * @brief Publish a gaze position update to the eyes node.
+   */
+  void publishEyePos(robo_eyes::Pos pos);
+
+  /**
+   * @brief Enable or disable idle wandering on the eyes node.
+   */
+  void publishIdle(bool enabled);
+
+  bool isBailoteo(Mood m) const {
+    return m == Mood::BAILOTEO || m == Mood::BAILOTEO_WAIT;
+  }
 
   /**
    * @brief Handle external mode requests from a topic.
@@ -84,10 +108,12 @@ private:
   std::string sad_sound_;
   std::string love_sound_;
   rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr mood_pub_;
+  rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr eye_pos_pub_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr eye_idle_pub_;
   rclcpp::Subscription<std_msgs::msg::UInt8>::SharedPtr mode_sub_;
   rclcpp::TimerBase::SharedPtr timer_;
   std::unique_ptr<State> current_state_;
+  robo_eyes::Mood last_regular_mood_{robo_eyes::Mood::FROWN};
 };
 
 } // namespace robofer
-

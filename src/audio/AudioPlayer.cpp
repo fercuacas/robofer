@@ -2,15 +2,18 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <errno.h>
 #include <filesystem>
 #include <iostream>
 #include <optional>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <thread>
 #include <unistd.h>
 
 namespace fs = std::filesystem;
@@ -79,6 +82,33 @@ std::optional<std::string> AudioPlayer::resolveKeyOrPath(const std::string& s) c
   return std::nullopt;
 }
 
+std::optional<std::string> AudioPlayer::findExecutable(const std::string& name) const {
+  auto is_accessible = [](const std::string& path){
+    return !path.empty() && access(path.c_str(), X_OK) == 0;
+  };
+
+  if(name.find('/') != std::string::npos){
+    if(is_accessible(name)) return name;
+    return std::nullopt;
+  }
+
+  const char* path_env = std::getenv("PATH");
+  if(!path_env) return std::nullopt;
+
+  std::string path(path_env);
+  size_t start = 0;
+  while(start <= path.size()){
+    size_t end = path.find(':', start);
+    std::string dir = (end == std::string::npos) ? path.substr(start) : path.substr(start, end - start);
+    if(dir.empty()) dir = ".";
+    fs::path candidate = fs::path(dir) / name;
+    if(is_accessible(candidate.string())) return candidate.string();
+    if(end == std::string::npos) break;
+    start = end + 1;
+  }
+  return std::nullopt;
+}
+
 bool AudioPlayer::spawnPlayer(const std::string& filepath){
   std::string ext = toLower(fs::path(filepath).extension().string());
   bool is_wav = (ext == ".wav");
@@ -89,11 +119,51 @@ bool AudioPlayer::spawnPlayer(const std::string& filepath){
     return false;
   }
 
-  auto command = buildPlayerCommand(filepath, is_wav, is_mp3);
-  if(!command){
-    std::cerr << "[AudioPlayer] No se encontró reproductor compatible en el PATH."
-              << " Instala 'aplay', 'mpg123', 'ffmpeg' o 'ffplay'.\n";
-    return false;
+  std::vector<std::string> cmd;
+  auto push_common = [&](const std::string& exe){
+    cmd.clear();
+    cmd.push_back(exe);
+  };
+
+  if(is_wav){
+    if(auto exe = findExecutable("aplay")){
+      push_common(*exe);
+      if(!alsa_dev_.empty()){
+        cmd.push_back("-D");
+        cmd.push_back(alsa_dev_);
+      }
+      cmd.push_back(filepath);
+    } else if(auto ffplay = findExecutable("ffplay")){
+      push_common(*ffplay);
+      cmd.push_back("-autoexit");
+      cmd.push_back("-nodisp");
+      cmd.push_back("-loglevel");
+      cmd.push_back("error");
+      cmd.push_back(filepath);
+    } else {
+      std::cerr << "[AudioPlayer] No se encontró reproductor WAV (aplay/ffplay).\n";
+      return false;
+    }
+  } else if(is_mp3){
+    if(auto exe = findExecutable("mpg123")){
+      push_common(*exe);
+      if(!alsa_dev_.empty()){
+        cmd.push_back("-a");
+        cmd.push_back(alsa_dev_);
+      }
+      cmd.push_back(filepath);
+    } else if(auto ffplay = findExecutable("ffplay")){
+      push_common(*ffplay);
+      cmd.push_back("-autoexit");
+      cmd.push_back("-nodisp");
+      cmd.push_back("-loglevel");
+      cmd.push_back("error");
+      cmd.push_back(filepath);
+    } else {
+      std::cerr << "[AudioPlayer] No se encontró reproductor MP3 (mpg123/ffplay).\n";
+      return false;
+    }
+// >>>>>>> Stashed changes
   }
 
   stop();
@@ -107,13 +177,13 @@ bool AudioPlayer::spawnPlayer(const std::string& filepath){
 
   if(child_pid_ == 0){
     std::vector<char*> argv;
-    argv.reserve(command->size() + 1);
-    for(auto& arg : *command){
-      argv.push_back(const_cast<char*>(arg.c_str()));
+    argv.reserve(cmd.size() + 1);
+    for(auto& s : cmd){
+      argv.push_back(const_cast<char*>(s.c_str()));
     }
     argv.push_back(nullptr);
-    execvp(argv[0], argv.data());
-    std::perror("execvp");
+    execv(argv[0], argv.data());
+    std::perror(argv[0]);
     _exit(127);
   }
 
@@ -135,34 +205,74 @@ bool AudioPlayer::play(const std::string& key_or_path){
   return true;
 }
 
-void AudioPlayer::stop(){
+void AudioPlayer::pollChildExit(){
   if(child_pid_ <= 0) return;
-
-  if(kill(child_pid_, SIGINT) == 0){
-    int status = 0;
-    for(int i=0;i<15;++i){
-      pid_t r = waitpid(child_pid_, &status, WNOHANG);
-      if(r == child_pid_) break;
-      usleep(100*1000);
+  int status = 0;
+  pid_t r = waitpid(child_pid_, &status, WNOHANG);
+  if(r == 0) return;
+  if(r < 0){
+    if(errno == ECHILD){
+      child_pid_ = -1;
+      paused_ = false;
+      current_file_.clear();
+      start_time_ = {};
     }
+    return;
   }
-  if(kill(child_pid_, 0) == 0){
-    kill(child_pid_, SIGKILL);
-    int status = 0;
-    waitpid(child_pid_, &status, 0);
-  }
-  std::cerr << "[AudioPlayer] Reproducción detenida.\n";
+
+  std::cerr << "[AudioPlayer] Reproducción finalizada.\n";
   child_pid_ = -1;
   paused_ = false;
   current_file_.clear();
+  start_time_ = {};
 }
 
-bool AudioPlayer::isPlaying() const {
+void AudioPlayer::stop(){
+  if(child_pid_ <= 0) return;
+
+  const pid_t pid = child_pid_;
+  child_pid_ = -1;
+  paused_ = false;
+  current_file_.clear();
+
+  auto wait_with_timeout = [&](std::chrono::milliseconds timeout){
+    int status = 0;
+    auto deadline = std::chrono::steady_clock::now() + timeout;
+    while(std::chrono::steady_clock::now() < deadline){
+      pid_t r = waitpid(pid, &status, WNOHANG);
+      if(r == pid) return true;
+      if(r < 0) return true;
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    return false;
+  };
+
+  bool terminated = false;
+  if(kill(pid, SIGINT) == 0){
+    terminated = wait_with_timeout(std::chrono::milliseconds(250));
+  } else if(errno == ESRCH){
+    terminated = true;
+  }
+
+  if(!terminated){
+    kill(pid, SIGKILL);
+    int status = 0;
+    waitpid(pid, &status, 0);
+  }
+
+  std::cerr << "[AudioPlayer] Reproducción detenida.\n";
+}
+
+bool AudioPlayer::isPlaying(){
+  pollChildExit();
   if(child_pid_ <= 0) return false;
-  return (kill(child_pid_, 0) == 0);
+  if(kill(child_pid_, 0) == 0) return true;
+  pollChildExit();
+  return child_pid_ > 0;
 }
 
 bool AudioPlayer::pause(){
+  pollChildExit();
   if(child_pid_ <= 0) return false;
   if(paused_) return true;
   if(kill(child_pid_, SIGSTOP) == 0){
@@ -173,6 +283,7 @@ bool AudioPlayer::pause(){
 }
 
 bool AudioPlayer::resume(){
+  pollChildExit();
   if(child_pid_ <= 0) return false;
   if(!paused_) return true;
   if(kill(child_pid_, SIGCONT) == 0){
@@ -194,11 +305,6 @@ std::vector<std::string> AudioPlayer::listTracks() const {
 double AudioPlayer::getDuration(const std::string& key_or_path){
   auto resolved = resolveKeyOrPath(key_or_path);
   if(!resolved) return -1.0;
-  if(!commandExists("ffprobe")){
-    std::cerr << "[AudioPlayer] ffprobe no disponible, duración desconocida para "
-              << *resolved << "\n";
-    return -1.0;
-  }
   std::string cmd = std::string("ffprobe -v error -show_entries format=duration -of "
                                "default=noprint_wrappers=1:nokey=1 \"") +
                     *resolved + "\"";
@@ -210,70 +316,4 @@ double AudioPlayer::getDuration(const std::string& key_or_path){
   return std::atof(buf);
 }
 
-bool AudioPlayer::commandExists(const std::string& name) const{
-  if(name.empty()) return false;
-  if(name.find('/') != std::string::npos){
-    return access(name.c_str(), X_OK) == 0;
-  }
-  const char* path_env = std::getenv("PATH");
-  if(!path_env) return false;
-  std::string path(path_env);
-  size_t start = 0;
-  while(start <= path.size()){
-    size_t end = path.find(':', start);
-    std::string dir = path.substr(start, (end == std::string::npos) ? std::string::npos : end - start);
-    if(dir.empty()) dir = ".";
-    fs::path candidate = fs::path(dir) / name;
-    if(access(candidate.c_str(), X_OK) == 0){
-      return true;
-    }
-    if(end == std::string::npos) break;
-    start = end + 1;
-  }
-  return false;
-}
-
-std::optional<std::vector<std::string>> AudioPlayer::buildPlayerCommand(
-    const std::string& filepath, bool is_wav, bool is_mp3) const{
-  const std::string device = alsa_dev_;
-
-  if(is_wav && commandExists("aplay")){
-    std::vector<std::string> cmd = {"aplay"};
-    if(!device.empty()){
-      cmd.push_back("-D");
-      cmd.push_back(device);
-    }
-    cmd.push_back(filepath);
-    return cmd;
-  }
-
-  if(is_mp3 && commandExists("mpg123")){
-    std::vector<std::string> cmd = {"mpg123"};
-    if(!device.empty()){
-      cmd.push_back("-a");
-      cmd.push_back(device);
-    }
-    cmd.push_back(filepath);
-    return cmd;
-  }
-
-  if(commandExists("ffmpeg")){
-    std::vector<std::string> cmd = {
-        "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
-        "-i", filepath, "-f", "alsa",
-        device.empty() ? "default" : device};
-    return cmd;
-  }
-
-  if(commandExists("ffplay")){
-    std::vector<std::string> cmd = {
-        "ffplay", "-autoexit", "-nodisp", "-hide_banner", "-loglevel", "error",
-        filepath};
-    return cmd;
-  }
-
-  return std::nullopt;
-}
-
 } // namespace robo_audio
-

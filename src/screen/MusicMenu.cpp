@@ -2,6 +2,7 @@
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace robo_ui {
 
@@ -14,7 +15,52 @@ void MusicMenu::setFontScale(double s){
   font_scale_ = std::clamp(s, 0.1, 2.0);
 }
 
+void MusicMenu::setBailoteoHandler(BailoteoHandler cb){
+  bailoteo_handler_ = std::move(cb);
+  reported_active_ = !bailoteo_mode_;
+  reported_playing_ = !playing_;
+  reported_paused_ = !paused_;
+  notifyBailoteoState();
+}
+
+void MusicMenu::notifyBailoteoState(){
+  if(!bailoteo_handler_) return;
+  if(reported_active_ == bailoteo_mode_ &&
+     reported_playing_ == playing_ &&
+     reported_paused_ == paused_) return;
+  reported_active_ = bailoteo_mode_;
+  reported_playing_ = playing_;
+  reported_paused_ = paused_;
+  bailoteo_handler_(bailoteo_mode_, playing_, paused_);
+}
+
+void MusicMenu::syncPlaybackState(){
+  bool new_playing = player_.isPlaying();
+  bool new_paused = player_.isPaused();
+  if(!new_playing){
+    new_paused = false;
+    if(!current_.empty()){
+      current_.clear();
+      duration_ = 0.0;
+      paused_elapsed_ = 0.0;
+      start_time_ = std::chrono::steady_clock::now();
+    }
+  }
+  playing_ = new_playing;
+  paused_ = new_paused;
+  notifyBailoteoState();
+}
+
 void MusicMenu::onKey(UiKey key){
+  syncPlaybackState();
+  if(bailoteo_mode_){
+    bailoteo_mode_ = false;
+    mode_ = Mode::MENU;
+    row_sel_ = 2;
+    notifyBailoteoState();
+    return;
+  }
+
   switch(mode_){
     case Mode::MENU:
       switch(key){
@@ -22,13 +68,16 @@ void MusicMenu::onKey(UiKey key){
           if(row_sel_ > 1) row_sel_--;
           break;
         case UiKey::DOWN:
-          if(row_sel_ < 3) row_sel_++;
+          if(row_sel_ < 4) row_sel_++;
           break;
         case UiKey::OK:
           if(row_sel_ == 1){
             tracks_ = player_.listTracks();
             mode_ = Mode::TRACKS;
           } else if(row_sel_ == 2){
+            bailoteo_mode_ = true;
+            notifyBailoteoState();
+          } else if(row_sel_ == 3){
             if(playing_){
                 if(paused_){
                   if(player_.resume()){
@@ -53,7 +102,7 @@ void MusicMenu::onKey(UiKey key){
                 paused_elapsed_ = 0.0;
               }
             }
-          } else if(row_sel_ == 3){
+          } else if(row_sel_ == 4){
             if(playing_){
               player_.stop();
               playing_ = false;
@@ -103,9 +152,13 @@ void MusicMenu::onKey(UiKey key){
       }
       break;
   }
+
+  syncPlaybackState();
 }
 
 void MusicMenu::drawMenu(cv::Mat& canvas){
+  if(bailoteo_mode_) return;
+
   const int W = canvas.cols, H = canvas.rows;
   canvas.setTo(cv::Scalar(40,40,40));
   int baseline = 0;
@@ -138,19 +191,25 @@ void MusicMenu::drawMenu(cv::Mat& canvas){
               cv::Point(text_pad, song_y + text_pad + sample_sz.height),
               cv::FONT_HERSHEY_SIMPLEX, font_scale_, cv::Scalar(255,255,255), 1, cv::LINE_8);
 
+  // bailoteo row
+  int bail_y = song_y + line_h;
+  if(row_sel_ == 2){
+    cv::rectangle(canvas, cv::Rect(0, bail_y, W, line_h), cv::Scalar(80,80,80), cv::FILLED);
+  }
+  cv::putText(canvas, "Bailoteo",
+              cv::Point(text_pad, bail_y + text_pad + sample_sz.height),
+              cv::FONT_HERSHEY_SIMPLEX, font_scale_, cv::Scalar(255,255,255), 1, cv::LINE_8);
+
   // controls row at bottom
   int ctrl_y = H - line_h;
   int icon_size = line_h - text_pad*2;
   int total_w = icon_size*2 + text_pad;
   int cx = (W - total_w)/2;
 
-  // play/pause button (row 2)
+  // play/pause button (row 3)
   cv::Rect r_play(cx, ctrl_y + text_pad, icon_size, icon_size);
   bool show_pause = playing_ && !paused_;
   cv::Scalar play_color = show_pause ? cv::Scalar(128,128,128) : cv::Scalar(0,255,0);
-  if(row_sel_ == 2){
-    cv::rectangle(canvas, r_play, cv::Scalar(200,200,200), 1);
-  }
   if(show_pause){
     int bar_w = icon_size/3;
     cv::rectangle(canvas, cv::Rect(r_play.x, r_play.y, bar_w, icon_size), play_color, cv::FILLED);
@@ -163,14 +222,17 @@ void MusicMenu::drawMenu(cv::Mat& canvas){
     };
     cv::fillConvexPoly(canvas, pts, 3, play_color);
   }
+  if(row_sel_ == 3){
+    cv::rectangle(canvas, r_play, cv::Scalar(255,255,255), 2);
+  }
 
-  // stop button (row 3)
+  // stop button (row 4)
   cx += icon_size + text_pad;
   cv::Rect r_stop(cx, ctrl_y + text_pad, icon_size, icon_size);
-  if(row_sel_ == 3){
-    cv::rectangle(canvas, r_stop, cv::Scalar(200,200,200), 1);
-  }
   cv::rectangle(canvas, r_stop, cv::Scalar(0,0,255), cv::FILLED);
+  if(row_sel_ == 4){
+    cv::rectangle(canvas, r_stop, cv::Scalar(255,255,255), 2);
+  }
 }
 
 void MusicMenu::drawTrackList(cv::Mat& canvas){
@@ -199,7 +261,15 @@ void MusicMenu::drawTrackList(cv::Mat& canvas){
   }
 }
 
+void MusicMenu::cancelBailoteo(){
+  bailoteo_mode_ = false;
+  mode_ = Mode::MENU;
+  row_sel_ = 2;
+  notifyBailoteoState();
+}
+
 void MusicMenu::draw(cv::Mat& canvas){
+  syncPlaybackState();
   if(mode_ == Mode::MENU){
     drawMenu(canvas);
   } else {
@@ -208,4 +278,3 @@ void MusicMenu::draw(cv::Mat& canvas){
 }
 
 } // namespace robo_ui
-

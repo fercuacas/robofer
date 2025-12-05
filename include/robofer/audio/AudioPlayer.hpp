@@ -73,7 +73,7 @@ public:
    * @brief Check whether an audio file is currently playing.
    * @return true if a child process is active.
    */
-  bool isPlaying() const;
+  bool isPlaying();
 
   /** @brief Whether playback is currently paused. */
   bool isPaused() const { return paused_; }
@@ -110,16 +110,16 @@ private:
    */
   bool spawnPlayer(const std::string& filepath);
 
-  /**
-   * @brief Check whether an executable is available in PATH.
-   */
-  bool commandExists(const std::string& name) const;
+  /** @brief Check if the child process has exited and clean up. */
+  void pollChildExit();
 
   /**
-   * @brief Build the command line used to play the provided file.
+   * @brief Locate an executable in PATH or via absolute reference.
+   * @param name Binary name or absolute path.
+   * @return Absolute path if executable is available.
    */
-  std::optional<std::vector<std::string>> buildPlayerCommand(
-      const std::string& filepath, bool is_wav, bool is_mp3) const;
+  std::optional<std::string> findExecutable(const std::string& name) const;
+// >>>>>>> Stashed changes
 
   std::vector<std::string> paths_;
   std::vector<std::string> exts_;
@@ -132,4 +132,3 @@ private:
 };
 
 } // namespace robo_audio
-

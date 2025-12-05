@@ -2,6 +2,7 @@
 #include <std_msgs/msg/int32.hpp>
 #include <std_msgs/msg/u_int8.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 #include <cstdlib>
 #include <regex>
@@ -70,6 +71,33 @@ int main(int argc, char** argv){
   robo_ui::MusicMenu music_menu(audio_player);
   bool music_mode = false;
   std::atomic<Mood> current_mood{Mood::DEFAULT};
+  Mood last_regular_mood = Mood::FROWN;
+  Mood last_sent_mode = Mood::FROWN;
+  bool bailoteo_active = false;
+  bool bailoteo_playing = false;
+  bool bailoteo_paused = false;
+
+  auto send_mode = [&](Mood mood){
+    if(last_sent_mode == mood) return;
+    std_msgs::msg::UInt8 msg;
+    msg.data = static_cast<uint8_t>(mood);
+    mode_pub->publish(msg);
+    last_sent_mode = mood;
+  };
+
+  auto update_bailoteo_state = [&](){
+    Mood target = bailoteo_active && bailoteo_playing && !bailoteo_paused
+                    ? Mood::BAILOTEO
+                    : (bailoteo_active ? Mood::BAILOTEO_WAIT : last_regular_mood);
+    send_mode(target);
+  };
+
+  music_menu.setBailoteoHandler([&](bool active, bool playing, bool paused){
+    bailoteo_active = active;
+    bailoteo_playing = playing;
+    bailoteo_paused = paused;
+    update_bailoteo_state();
+  });
 
   auto update_bt_menu = [&](){
     if(!menu_ptr) return;
@@ -87,28 +115,28 @@ int main(int argc, char** argv){
   };
 
   MenuController menu([&](MenuAction a){
-    std_msgs::msg::UInt8 m;
     switch(a){
       case MenuAction::SET_ANGRY:
-        m.data = static_cast<uint8_t>(Mood::ANGRY);
-        mode_pub->publish(m);
+        last_regular_mood = Mood::ANGRY;
+        update_bailoteo_state();
         RCLCPP_INFO(log, "MenuAction -> mode ANGRY");
         break;
       case MenuAction::SET_SAD:
-        m.data = static_cast<uint8_t>(Mood::FROWN);
-        mode_pub->publish(m);
+        last_regular_mood = Mood::FROWN;
+        update_bailoteo_state();
         RCLCPP_INFO(log, "MenuAction -> mode SAD");
         break;
       case MenuAction::SET_HAPPY:
-        m.data = static_cast<uint8_t>(Mood::HAPPY);
-        mode_pub->publish(m);
+        last_regular_mood = Mood::HAPPY;
+        update_bailoteo_state();
         RCLCPP_INFO(log, "MenuAction -> mode HAPPY");
         break;
-      case MenuAction::SET_LOVE:
-        m.data = static_cast<uint8_t>(Mood::LOVE);
-        mode_pub->publish(m);
+      case MenuAction::SET_LOVE: {
+        std_msgs::msg::UInt8 msg;
+        msg.data = static_cast<uint8_t>(Mood::LOVE);
+        mode_pub->publish(msg);
         RCLCPP_INFO(log, "MenuAction -> mode LOVE");
-        break;
+        break; }
       case MenuAction::POWEROFF:
         RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
         std::system("sudo poweroff &");
@@ -202,11 +230,13 @@ int main(int argc, char** argv){
       if(v < 0 || v > 3) return;
       UiKey key = static_cast<UiKey>(v);
       if(music_mode){
-        bool playing_before = audio_player.isPlaying();
+        bool bailoteo_before = bailoteo_active;
         music_menu.onKey(key);
-        if(key == UiKey::BACK && !playing_before && !audio_player.isPlaying()){
+        bool bailoteo_after = bailoteo_active;
+        if(key == UiKey::BACK && !bailoteo_after && !audio_player.isPlaying()){
           music_mode = false;
           menu.onKey(UiKey::BACK);
+          update_bailoteo_state();
         }
       } else {
         menu.onKey(key);
@@ -216,9 +246,25 @@ int main(int argc, char** argv){
   auto sub_mood = node->create_subscription<std_msgs::msg::UInt8>(
     "/eyes/mood", 10,
     [&](const std_msgs::msg::UInt8::SharedPtr msg){
-      Mood m = static_cast<Mood>(msg->data);
-      current_mood.store(m, std::memory_order_relaxed);
-      eyes.setMood(m);
+      Mood m_val = static_cast<Mood>(msg->data);
+      current_mood.store(m_val, std::memory_order_relaxed);
+      std::lock_guard<std::mutex> lk(ui_mtx);
+      eyes.setMood(m_val);
+    });
+
+  auto eye_pos_sub = node->create_subscription<std_msgs::msg::UInt8>(
+    "/eyes/pos", 10,
+    [&](const std_msgs::msg::UInt8::SharedPtr msg){
+      if(msg->data > static_cast<uint8_t>(robo_eyes::Pos::NW)) return;
+      std::lock_guard<std::mutex> lk(ui_mtx);
+      eyes.setPosition(static_cast<robo_eyes::Pos>(msg->data));
+    });
+
+  auto eye_idle_sub = node->create_subscription<std_msgs::msg::Bool>(
+    "/eyes/idle", 10,
+    [&](const std_msgs::msg::Bool::SharedPtr msg){
+      std::lock_guard<std::mutex> lk(ui_mtx);
+      eyes.setIdle(msg->data);
     });
 
   rclcpp::Rate rate(fps);
@@ -258,27 +304,29 @@ int main(int argc, char** argv){
   while(rclcpp::ok()){
     rclcpp::spin_some(node);
 
-    eyes.update();
-    const cv::Mat& m = eyes.frame();
-
-    canvas.setTo(cv::Scalar(0,0,0));
-    int ox = std::max(0, (DW - m.cols)/2);
-    int oy = std::max(0, (DH - m.rows)/2);
-    cv::Rect roi(ox, oy, std::min(m.cols, DW-ox), std::min(m.rows, DH-oy));
-    if(roi.width > 0 && roi.height > 0){
-      cv::Mat src = m(cv::Rect(0,0,roi.width,roi.height));
-      cv::Mat dst = canvas(roi);
-      cv::cvtColor(src, dst, cv::COLOR_GRAY2BGR);
-      if(current_mood.load(std::memory_order_relaxed) == Mood::LOVE){
-        cv::Mat mask;
-        cv::threshold(src, mask, 1, 255, cv::THRESH_BINARY);
-        cv::Mat pink(dst.size(), CV_8UC3, cv::Scalar(170, 120, 200));
-        pink.copyTo(dst, mask);
-      }
-    }
-
     {
       std::lock_guard<std::mutex> lk(ui_mtx);
+      eyes.update();
+      const cv::Mat& m = eyes.frame();
+      canvas.setTo(cv::Scalar(0,0,0));
+      int ox = std::max(0, (DW - m.cols)/2);
+      int oy = std::max(0, (DH - m.rows)/2);
+      cv::Rect roi(ox, oy, std::min(m.cols, DW-ox), std::min(m.rows, DH-oy));
+      if(roi.width > 0 && roi.height > 0){
+        cv::Mat src = m(cv::Rect(0,0,roi.width,roi.height));
+        cv::Mat dst = canvas(roi);
+        cv::cvtColor(src, dst, cv::COLOR_GRAY2BGR);
+        if(current_mood.load(std::memory_order_relaxed) == Mood::LOVE){
+          cv::Mat mask_inner, mask_border;
+          cv::inRange(src, 200, 255, mask_inner);      // blanco -> rosa claro
+          cv::inRange(src, 1, 199, mask_border);       // gris -> rosa oscuro
+          cv::Mat pink_light(dst.size(), CV_8UC3, cv::Scalar(220, 160, 230));
+          cv::Mat pink_dark(dst.size(), CV_8UC3, cv::Scalar(150, 90, 170));
+          pink_dark.copyTo(dst, mask_border);
+          pink_light.copyTo(dst, mask_inner);
+        }
+      }
+
       if(music_mode){
         music_menu.draw(canvas);
       } else {
