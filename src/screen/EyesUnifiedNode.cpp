@@ -5,6 +5,7 @@
 #include <std_srvs/srv/set_bool.hpp>
 #include <cstdlib>
 #include <regex>
+#include <atomic>
 #include "robofer/bluetoothctl_agent.hpp"
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -68,6 +69,7 @@ int main(int argc, char** argv){
   audio_player.reindex();
   robo_ui::MusicMenu music_menu(audio_player);
   bool music_mode = false;
+  std::atomic<Mood> current_mood{Mood::DEFAULT};
 
   auto update_bt_menu = [&](){
     if(!menu_ptr) return;
@@ -214,7 +216,9 @@ int main(int argc, char** argv){
   auto sub_mood = node->create_subscription<std_msgs::msg::UInt8>(
     "/eyes/mood", 10,
     [&](const std_msgs::msg::UInt8::SharedPtr msg){
-      eyes.setMood(static_cast<Mood>(msg->data));
+      Mood m = static_cast<Mood>(msg->data);
+      current_mood.store(m, std::memory_order_relaxed);
+      eyes.setMood(m);
     });
 
   rclcpp::Rate rate(fps);
@@ -263,7 +267,14 @@ int main(int argc, char** argv){
     cv::Rect roi(ox, oy, std::min(m.cols, DW-ox), std::min(m.rows, DH-oy));
     if(roi.width > 0 && roi.height > 0){
       cv::Mat src = m(cv::Rect(0,0,roi.width,roi.height));
-      cv::cvtColor(src, canvas(roi), cv::COLOR_GRAY2BGR);
+      cv::Mat dst = canvas(roi);
+      cv::cvtColor(src, dst, cv::COLOR_GRAY2BGR);
+      if(current_mood.load(std::memory_order_relaxed) == Mood::LOVE){
+        cv::Mat mask;
+        cv::threshold(src, mask, 1, 255, cv::THRESH_BINARY);
+        cv::Mat pink(dst.size(), CV_8UC3, cv::Scalar(170, 120, 200));
+        pink.copyTo(dst, mask);
+      }
     }
 
     {
@@ -282,4 +293,3 @@ int main(int argc, char** argv){
   rclcpp::shutdown();
   return 0;
 }
-
