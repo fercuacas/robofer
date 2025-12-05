@@ -53,10 +53,12 @@ private:
   class HappyState;
   class AngryState;
   class SadState;
+  class LoveState;
 
   friend class HappyState;
   friend class AngryState;
   friend class SadState;
+  friend class LoveState;
 
   /**
    * @brief Change the active mood/state.
@@ -80,6 +82,7 @@ private:
   std::string happy_sound_;
   std::string angry_sound_;
   std::string sad_sound_;
+  std::string love_sound_;
   rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr mood_pub_;
   rclcpp::Subscription<std_msgs::msg::UInt8>::SharedPtr mode_sub_;
   rclcpp::TimerBase::SharedPtr timer_;

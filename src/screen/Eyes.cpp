@@ -70,7 +70,33 @@ void RoboEyes::setBorderRadius(int l, int r){ eyeL_r_next_=eyeL_r_def_=l; eyeR_r
 
 void RoboEyes::setSpaceBetween(int px){ spaceBetweenNext_=spaceBetweenDefault_=px; }
 
-void RoboEyes::setMood(Mood m){ tired_=angry_=happy_=frown_=false; if(m==TIRED) tired_=true; else if(m==ANGRY) angry_=true; else if(m==HAPPY) happy_=true; else if(m==FROWN) frown_=true;}
+void RoboEyes::setMood(Mood m){
+  tired_=angry_=happy_=frown_=love_=false;
+  switch(m){
+    case Mood::TIRED:
+      tired_ = true;
+      break;
+    case Mood::ANGRY:
+      angry_ = true;
+      break;
+    case Mood::HAPPY:
+      happy_ = true;
+      break;
+    case Mood::FROWN:
+      frown_ = true;
+      break;
+    case Mood::LOVE:
+      love_ = true;
+      eyeL_open_ = eyeR_open_ = true;
+      eyeL_h_next_ = eyeL_h_def_;
+      eyeR_h_next_ = eyeR_h_def_;
+      spaceBetweenNext_ = spaceBetweenDefault_;
+      break;
+    case Mood::DEFAULT:
+    default:
+      break;
+  }
+}
 
 void RoboEyes::setPosition(Pos p){
   switch(p){
@@ -105,7 +131,33 @@ void RoboEyes::fillRect(cv::Mat& img, int x, int y, int w, int h, int gray){
   if(w<=0||h<=0) return; cv::rectangle(img, cv::Rect(x,y,w,h), cv::Scalar(gray), cv::FILLED, cv::LINE_8);
 }
 
-void RoboEyes::fillCircle(cv::Mat& img, int cx, int cy, int r, int gray){ if(r>0) cv::circle(img, {cx,cy}, r, cv::Scalar(gray), cv::FILLED, cv::LINE_8); }
+void RoboEyes::fillCircle(cv::Mat& img, int cx, int cy, int r, int gray){
+  if(r>0) cv::circle(img, {cx,cy}, r, cv::Scalar(gray), cv::FILLED, cv::LINE_8);
+}
+
+void RoboEyes::fillHeart(cv::Mat& img, cv::Rect roi, int gray){
+  if(roi.width <= 0 || roi.height <= 0) return;
+  cv::Rect bounds(0, 0, img.cols, img.rows);
+  cv::Rect safe = roi & bounds;
+  if(safe.width <= 0 || safe.height <= 0) return;
+
+  cv::Mat mask(roi.height, roi.width, CV_8UC1, cv::Scalar(0));
+  int w = mask.cols;
+  int h = mask.rows;
+  int radius = std::max(1, std::min(w, h) / 4);
+
+  cv::Point left(w/2 - radius, h/3);
+  cv::Point right(w/2 + radius, h/3);
+  cv::circle(mask, left, radius, cv::Scalar(255), cv::FILLED, cv::LINE_8);
+  cv::circle(mask, right, radius, cv::Scalar(255), cv::FILLED, cv::LINE_8);
+
+  std::vector<cv::Point> tri{{0, h/3}, {w-1, h/3}, {w/2, h-1}};
+  cv::fillConvexPoly(mask, tri, cv::Scalar(255), cv::LINE_8);
+
+  cv::Rect inner(safe.x - roi.x, safe.y - roi.y, safe.width, safe.height);
+  cv::Mat mask_roi = mask(inner);
+  img(safe).setTo(cv::Scalar(gray), mask_roi);
+}
 
 void RoboEyes::fillRoundRect(cv::Mat& img, int x, int y, int w, int h, int r, int gray){
   if(w<=0||h<=0) return;
@@ -317,6 +369,21 @@ void RoboEyes::drawEyes(){
 
   // Draw
   clear(canvas_, BGCOLOR);
+  if(love_){
+    int padL = std::max(1, std::min(eyeL_w_cur_, eyeL_h_cur_) / 6);
+    cv::Rect roiL(eyeLx_ + padL, eyeLy_ + padL,
+                  std::max(0, eyeL_w_cur_ - 2*padL),
+                  std::max(0, eyeL_h_cur_ - 2*padL));
+    fillHeart(canvas_, roiL, MAINCOLOR);
+    if(!cyclops_ && eyeR_w_cur_ > 0 && eyeR_h_cur_ > 0){
+      int padR = std::max(1, std::min(eyeR_w_cur_, eyeR_h_cur_) / 6);
+      cv::Rect roiR(eyeRx_ + padR, eyeRy_ + padR,
+                    std::max(0, eyeR_w_cur_ - 2*padR),
+                    std::max(0, eyeR_h_cur_ - 2*padR));
+      fillHeart(canvas_, roiR, MAINCOLOR);
+    }
+    return;
+  }
   // if (frown_) {
 
   //   eyeLx_next_ = screenConstraintX() / 2;

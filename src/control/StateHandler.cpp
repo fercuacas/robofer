@@ -47,6 +47,19 @@ public:
   }
 };
 
+class StateHandler::LoveState : public StateHandler::State {
+public:
+  void onEnter(StateHandler &ctx) override {
+    RCLCPP_INFO(ctx.get_logger(), "Entering LOVE state");
+    std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::LOVE);
+    ctx.mood_pub_->publish(msg);
+    ctx.servos_.moveTo(0, 90.0f, 60.0f);
+    ctx.servos_.moveTo(1, 90.0f, 60.0f);
+    if(ctx.audio_ && !ctx.love_sound_.empty())
+      ctx.audio_->play(ctx.love_sound_);
+  }
+};
+
 } // namespace robofer
 
 using robofer::StateHandler;
@@ -68,6 +81,7 @@ StateHandler::StateHandler()
   happy_sound_ = declare_parameter<std::string>("happy_sound", "");
   angry_sound_ = declare_parameter<std::string>("angry_sound", "");
   sad_sound_ = declare_parameter<std::string>("sad_sound", "");
+  love_sound_ = declare_parameter<std::string>("love_sound", "");
   RCLCPP_INFO(get_logger(), "State handler starting (sim=%s)", sim ? "true" : "false");
   mood_pub_ = create_publisher<std_msgs::msg::UInt8>("/eyes/mood", 10);
   mode_sub_ = create_subscription<std_msgs::msg::UInt8>(
@@ -97,6 +111,9 @@ void StateHandler::setState(Mood m) {
       break;
     case Mood::ANGRY:
       current_state_ = std::make_unique<AngryState>();
+      break;
+    case Mood::LOVE:
+      current_state_ = std::make_unique<LoveState>();
       break;
     case Mood::FROWN:
     default:

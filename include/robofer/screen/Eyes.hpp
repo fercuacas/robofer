@@ -22,7 +22,7 @@ constexpr int BGCOLOR = 0;   /**< Background/overlays. */
 constexpr int MAINCOLOR = 255; /**< Drawings. */
 
 /** Mood presets used to adjust eye expression */
-enum Mood : uint8_t { DEFAULT = 0, TIRED = 1, ANGRY = 2, HAPPY = 3, FROWN = 4 };
+enum Mood : uint8_t { DEFAULT = 0, TIRED = 1, ANGRY = 2, HAPPY = 3, FROWN = 4, LOVE = 5 };
 
 /** Predefined gaze positions */
 enum Pos : uint8_t { CENTER=0, N=1, NE=2, E=3, SE=4, S=5, SW=6, W=7, NW=8 };
@@ -330,6 +330,13 @@ private:
    * @param gray Gray value.
    */
   static void fillCircle(cv::Mat& img, int cx, int cy, int r, int gray);
+  /**
+   * @brief Draw a stylised filled heart.
+   * @param img Target image.
+   * @param roi Bounding box for the heart.
+   * @param gray Gray value.
+   */
+  static void fillHeart(cv::Mat& img, cv::Rect roi, int gray);
 
   /**
    * @brief Render the eyes into the internal canvas.
@@ -348,6 +355,7 @@ private:
   // mood flags
   bool tired_=false, angry_=false, happy_=false;
   bool frown_=false; // <— ceño fruncido
+  bool love_=false;  // <— ojos en modo corazón
   bool curious_=false; // outer eye grows when looking sideways
   bool cyclops_=false; // single eye
   bool eyeL_open_=false, eyeR_open_=false;
