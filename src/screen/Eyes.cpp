@@ -24,7 +24,7 @@ int RoboEyes::rnd(int max_inclusive){
 
 void RoboEyes::begin(int w, int h, int fps){
   screen_w_ = w; screen_h_ = h; setFramerate(fps);
-  canvas_.create(h, w, CV_8UC1);
+  canvas_.create(h, w, CV_8UC3);
 
   const double sx = w / 128.0, sy = h / 64.0;
   eyeL_w_def_ = eyeR_w_def_ = std::lround(36 * sx);
@@ -72,7 +72,7 @@ void RoboEyes::setBorderRadius(int l, int r){ eyeL_r_next_=eyeL_r_def_=l; eyeR_r
 void RoboEyes::setSpaceBetween(int px){ spaceBetweenNext_=spaceBetweenDefault_=px; }
 
 void RoboEyes::setMood(Mood m){
-  tired_=angry_=happy_=frown_=love_=false;
+  tired_=angry_=happy_=frown_=love_=puxaine_=false;
   switch(m){
     case Mood::TIRED:
       tired_ = true;
@@ -84,6 +84,7 @@ void RoboEyes::setMood(Mood m){
     case Mood::BAILOTEO:
     case Mood::PUXAINE:
       happy_ = true;
+      puxaine_ = (m == Mood::PUXAINE);
       break;
     case Mood::FROWN:
     case Mood::BAILOTEO_WAIT:
@@ -263,6 +264,52 @@ static void draw_chevron(cv::Mat& img, cv::Rect roi, int dir, int thick, int gra
     draw_rounded_line(img, C, B, thick, gray);
     cv::circle(img, B, std::max(1, (thick+1)/2), cv::Scalar(gray), cv::FILLED, cv::LINE_8);
   }
+}
+
+void RoboEyes::drawPuxaineLips(){
+  int mouth_w = std::max(24, screen_w_ * 2 / 3);
+  int mouth_h = std::max(16, screen_h_ * 2 / 7);
+
+  int x0 = std::max(0, (screen_w_ - mouth_w) / 2);
+  int anchor_y = eyeLy_def_ + eyeL_h_def_ + std::max(4, screen_h_ / 14);
+  int y0 = std::min(screen_h_ - mouth_h - 1, anchor_y);
+
+  const int mid_y = y0 + mouth_h / 2;
+  const int top_y = y0;
+  const int bottom_y = y0 + mouth_h;
+  const int left_x = x0;
+  const int right_x = x0 + mouth_w;
+  const int cx = x0 + mouth_w / 2;
+
+  std::vector<cv::Point> upper{
+    {left_x, mid_y},
+    {x0 + mouth_w / 4, top_y + mouth_h / 3},
+    {cx, top_y},
+    {x0 + (mouth_w * 3) / 4, top_y + mouth_h / 3},
+    {right_x, mid_y},
+    {cx, mid_y + mouth_h / 8}
+  };
+
+  std::vector<cv::Point> lower{
+    {left_x, mid_y},
+    {x0 + mouth_w / 4, y0 + (mouth_h * 2) / 3},
+    {cx, bottom_y},
+    {x0 + (mouth_w * 3) / 4, y0 + (mouth_h * 2) / 3},
+    {right_x, mid_y},
+    {cx, mid_y - mouth_h / 10}
+  };
+
+  const cv::Scalar outline(0, 0, 120);
+  const cv::Scalar base_red(10, 10, 200);
+  const cv::Scalar shine(80, 80, 255);
+
+  std::vector<std::vector<cv::Point>> polys{upper, lower};
+  cv::fillPoly(canvas_, polys, base_red, cv::LINE_8);
+  cv::polylines(canvas_, polys, true, outline, 2, cv::LINE_AA);
+
+  cv::Point highlight_center(x0 + mouth_w / 3, mid_y);
+  cv::Size highlight_sz(std::max(4, mouth_w / 8), std::max(3, mouth_h / 6));
+  cv::ellipse(canvas_, highlight_center, highlight_sz, -10.0, 0.0, 360.0, shine, cv::FILLED, cv::LINE_AA);
 }
 
 void RoboEyes::update(){
@@ -545,5 +592,9 @@ void RoboEyes::drawEyes(){
   if(!cyclops_){
     fillRoundRect(canvas_, eyeRx_-1, (eyeRy_+eyeR_h_cur_)-eyelidsHappyBottomOffset_+1,
                   eyeR_w_cur_+2, eyeR_h_def_, eyeR_r_cur_, BGCOLOR);
+  }
+
+  if(puxaine_){
+    drawPuxaineLips();
   }
 }

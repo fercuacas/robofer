@@ -330,16 +330,24 @@ int main(int argc, char** argv){
     rclcpp::spin_some(node);
     eyes.update();
 
-    const cv::Mat& m = eyes.frame(); // 8UC1
+    const cv::Mat& m = eyes.frame();
     int ox = (lcd.w - eyes_w)/2; if(ox<0) ox=0;
     int oy = (lcd.h - eyes_h)/2; if(oy<0) oy=0;
 
     std::fill(framebuffer.begin(), framebuffer.end(), 0x0000);
     for(int y=0; y<eyes_h && (y+oy)<lcd.h; ++y){
-      const uint8_t* src = m.ptr<uint8_t>(y);
       uint16_t* dst = &framebuffer[(y+oy)*lcd.w + ox];
-      for(int x=0; x<eyes_w && (x+ox)<lcd.w; ++x){
-        dst[x] = (src[x] >= 128) ? 0xFFFF : 0x0000;
+      if(m.type() == CV_8UC1){
+        const uint8_t* src = m.ptr<uint8_t>(y);
+        for(int x=0; x<eyes_w && (x+ox)<lcd.w; ++x){
+          dst[x] = (src[x] >= 128) ? 0xFFFF : 0x0000;
+        }
+      } else if(m.type() == CV_8UC3){
+        const cv::Vec3b* src = m.ptr<cv::Vec3b>(y);
+        for(int x=0; x<eyes_w && (x+ox)<lcd.w; ++x){
+          const cv::Vec3b& p = src[x];
+          dst[x] = St7735::rgb565(p[2], p[1], p[0]);
+        }
       }
     }
     lcd.pushFrameRGB565(framebuffer);
