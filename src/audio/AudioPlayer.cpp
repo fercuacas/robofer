@@ -302,6 +302,11 @@ std::vector<std::string> AudioPlayer::listTracks() const {
   return keys;
 }
 
+bool AudioPlayer::isSupportedFile(const std::string& path) const {
+  std::string ext = toLower(fs::path(path).extension().string());
+  return std::find(exts_.begin(), exts_.end(), ext) != exts_.end();
+}
+
 double AudioPlayer::getDuration(const std::string& key_or_path){
   auto resolved = resolveKeyOrPath(key_or_path);
   if(!resolved) return -1.0;
