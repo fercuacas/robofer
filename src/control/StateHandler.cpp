@@ -1,9 +1,15 @@
 #include <functional>
 #include <chrono>
+#include <filesystem>
+#include <string>
+#include <vector>
+#include <cstdlib>
+#include <algorithm>
 #include <std_msgs/msg/bool.hpp>
 #include "robofer/control/StateHandler.hpp"
 
 using namespace std::chrono_literals;
+namespace fs = std::filesystem;
 
 namespace robofer {
 
@@ -105,6 +111,93 @@ private:
   std::chrono::steady_clock::time_point last_switch_{};
 };
 
+class StateHandler::PuxaineState : public StateHandler::State {
+public:
+  void onEnter(StateHandler &ctx) override {
+    RCLCPP_INFO(ctx.get_logger(), "Entering PUXAINE state");
+    bailoteo_.onEnter(ctx);
+    loadPlaylist(ctx);
+    if(playlist_.empty()){
+      RCLCPP_WARN(ctx.get_logger(), "No se encontraron audios en %s", target_dir_.c_str());
+      return;
+    }
+    index_ = 0;
+    if(!startNext(ctx)){
+      RCLCPP_WARN(ctx.get_logger(), "No se pudo iniciar la reproducción en Puxaine");
+    }
+  }
+
+  void onUpdate(StateHandler &ctx) override {
+    bailoteo_.onUpdate(ctx);
+    if(playlist_.empty()) return;
+    if(!ctx.audio_) return;
+    if(ctx.audio_->isPlaying()) return;
+    if(!startNext(ctx)){
+      RCLCPP_WARN(ctx.get_logger(), "No se pudieron reproducir las pistas de Puxaine");
+    }
+  }
+
+  void onExit(StateHandler &ctx) override {
+    bailoteo_.onExit(ctx);
+    if(ctx.audio_) ctx.audio_->stop();
+  }
+
+private:
+  void loadPlaylist(StateHandler &ctx){
+    playlist_.clear();
+    const char* home = std::getenv("HOME");
+    if(!home){
+      RCLCPP_WARN(ctx.get_logger(), "HOME no definido: sin playlist Puxaine");
+      return;
+    }
+
+    target_dir_ = (fs::path(home) / "Music" / "Pux").string();
+    std::error_code ec;
+    fs::path dir(target_dir_);
+    if(!fs::exists(dir, ec) || !fs::is_directory(dir, ec)){
+      RCLCPP_WARN(ctx.get_logger(), "Carpeta Puxaine no encontrada: %s", target_dir_.c_str());
+      return;
+    }
+
+    std::vector<fs::path> files;
+    for(fs::directory_iterator it(dir, ec), end; it != end; it.increment(ec)){
+      if(ec) break;
+      const auto& entry = *it;
+      if(!entry.is_regular_file(ec)) continue;
+      fs::path p = entry.path();
+      if(!ctx.audio_ || !ctx.audio_->isSupportedFile(p.string())) continue;
+      files.push_back(p);
+    }
+
+    std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b){
+      return a.filename().string() < b.filename().string();
+    });
+
+    for(const auto& p : files){
+      auto canonical = fs::canonical(p, ec);
+      if(ec) continue;
+      playlist_.push_back(canonical.string());
+    }
+  }
+
+  bool startNext(StateHandler &ctx){
+    if(!ctx.audio_ || playlist_.empty()) return false;
+
+    for(size_t attempt=0; attempt<playlist_.size(); ++attempt){
+      const std::string& path = playlist_[index_];
+      index_ = (index_ + 1) % playlist_.size();
+      if(ctx.audio_->play(path)) return true;
+      RCLCPP_WARN(ctx.get_logger(), "Fallo al reproducir %s", path.c_str());
+    }
+    return false;
+  }
+
+  std::vector<std::string> playlist_{};
+  size_t index_{0};
+  std::string target_dir_{};
+  BailoteoState bailoteo_{};
+};
+
 } // namespace robofer
 
 using robofer::StateHandler;
@@ -167,6 +260,9 @@ void StateHandler::setState(Mood m) {
       break;
     case Mood::LOVE:
       current_state_ = std::make_unique<LoveState>();
+      break;
+    case Mood::PUXAINE:
+      current_state_ = std::make_unique<PuxaineState>();
       break;
     case Mood::BAILOTEO:
       current_state_ = std::make_unique<BailoteoState>();

@@ -21,6 +21,7 @@ enum class MenuAction {
   SET_ANGRY,
   SET_SAD,
   SET_HAPPY,
+  SET_PUXAINE,
   SET_LOVE,
   POWEROFF,
   BT_CONNECT,

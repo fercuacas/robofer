@@ -82,6 +82,7 @@ void RoboEyes::setMood(Mood m){
       break;
     case Mood::HAPPY:
     case Mood::BAILOTEO:
+    case Mood::PUXAINE:
       happy_ = true;
       break;
     case Mood::FROWN:

@@ -82,6 +82,13 @@ public:
   std::vector<std::string> listTracks() const;
 
   /**
+   * @brief Check whether the provided path has a supported extension.
+   * @param path File path to check.
+   * @return true if the file extension is playable.
+   */
+  bool isSupportedFile(const std::string& path) const;
+
+  /**
    * @brief Get duration of an audio file in seconds if possible.
    * @param key_or_path Key or path to the audio file.
    * @return Duration in seconds or negative on failure.

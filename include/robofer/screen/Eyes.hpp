@@ -31,7 +31,8 @@ enum Mood : uint8_t {
   FROWN = 4,
   BAILOTEO_WAIT = 5,
   BAILOTEO = 6,
-  LOVE = 7
+  LOVE = 7,
+  PUXAINE = 8
 };
 
 /** Predefined gaze positions */

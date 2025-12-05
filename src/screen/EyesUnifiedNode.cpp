@@ -131,6 +131,14 @@ int main(int argc, char** argv){
         update_bailoteo_state();
         RCLCPP_INFO(log, "MenuAction -> mode HAPPY");
         break;
+      case MenuAction::SET_PUXAINE:
+        bailoteo_active = false;
+        bailoteo_playing = false;
+        bailoteo_paused = false;
+        last_regular_mood = Mood::PUXAINE;
+        update_bailoteo_state();
+        RCLCPP_INFO(log, "MenuAction -> mode PUXAINE");
+        break;
       case MenuAction::SET_LOVE: {
         std_msgs::msg::UInt8 msg;
         msg.data = static_cast<uint8_t>(Mood::LOVE);
