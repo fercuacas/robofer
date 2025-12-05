@@ -54,12 +54,14 @@ private:
   class HappyState;
   class AngryState;
   class SadState;
+  class LoveState;
   class BailoteoState;
   class BailoteoWaitingState;
 
   friend class HappyState;
   friend class AngryState;
   friend class SadState;
+  friend class LoveState;
   friend class BailoteoState;
   friend class BailoteoWaitingState;
 
@@ -104,6 +106,7 @@ private:
   std::string happy_sound_;
   std::string angry_sound_;
   std::string sad_sound_;
+  std::string love_sound_;
   rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr mood_pub_;
   rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr eye_pos_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr eye_idle_pub_;

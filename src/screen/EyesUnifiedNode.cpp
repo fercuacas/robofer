@@ -6,6 +6,7 @@
 #include <std_srvs/srv/set_bool.hpp>
 #include <cstdlib>
 #include <regex>
+#include <atomic>
 #include "robofer/bluetoothctl_agent.hpp"
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -69,6 +70,7 @@ int main(int argc, char** argv){
   audio_player.reindex();
   robo_ui::MusicMenu music_menu(audio_player);
   bool music_mode = false;
+  std::atomic<Mood> current_mood{Mood::DEFAULT};
   Mood last_regular_mood = Mood::FROWN;
   Mood last_sent_mode = Mood::FROWN;
   bool bailoteo_active = false;
@@ -129,6 +131,12 @@ int main(int argc, char** argv){
         update_bailoteo_state();
         RCLCPP_INFO(log, "MenuAction -> mode HAPPY");
         break;
+      case MenuAction::SET_LOVE: {
+        std_msgs::msg::UInt8 msg;
+        msg.data = static_cast<uint8_t>(Mood::LOVE);
+        mode_pub->publish(msg);
+        RCLCPP_INFO(log, "MenuAction -> mode LOVE");
+        break; }
       case MenuAction::POWEROFF:
         RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
         std::system("sudo poweroff &");
@@ -238,8 +246,10 @@ int main(int argc, char** argv){
   auto sub_mood = node->create_subscription<std_msgs::msg::UInt8>(
     "/eyes/mood", 10,
     [&](const std_msgs::msg::UInt8::SharedPtr msg){
+      Mood m_val = static_cast<Mood>(msg->data);
+      current_mood.store(m_val, std::memory_order_relaxed);
       std::lock_guard<std::mutex> lk(ui_mtx);
-      eyes.setMood(static_cast<Mood>(msg->data));
+      eyes.setMood(m_val);
     });
 
   auto eye_pos_sub = node->create_subscription<std_msgs::msg::UInt8>(
@@ -298,14 +308,23 @@ int main(int argc, char** argv){
       std::lock_guard<std::mutex> lk(ui_mtx);
       eyes.update();
       const cv::Mat& m = eyes.frame();
-
       canvas.setTo(cv::Scalar(0,0,0));
       int ox = std::max(0, (DW - m.cols)/2);
       int oy = std::max(0, (DH - m.rows)/2);
       cv::Rect roi(ox, oy, std::min(m.cols, DW-ox), std::min(m.rows, DH-oy));
       if(roi.width > 0 && roi.height > 0){
         cv::Mat src = m(cv::Rect(0,0,roi.width,roi.height));
-        cv::cvtColor(src, canvas(roi), cv::COLOR_GRAY2BGR);
+        cv::Mat dst = canvas(roi);
+        cv::cvtColor(src, dst, cv::COLOR_GRAY2BGR);
+        if(current_mood.load(std::memory_order_relaxed) == Mood::LOVE){
+          cv::Mat mask_inner, mask_border;
+          cv::inRange(src, 200, 255, mask_inner);      // blanco -> rosa claro
+          cv::inRange(src, 1, 199, mask_border);       // gris -> rosa oscuro
+          cv::Mat pink_light(dst.size(), CV_8UC3, cv::Scalar(220, 160, 230));
+          cv::Mat pink_dark(dst.size(), CV_8UC3, cv::Scalar(150, 90, 170));
+          pink_dark.copyTo(dst, mask_border);
+          pink_light.copyTo(dst, mask_inner);
+        }
       }
 
       if(music_mode){

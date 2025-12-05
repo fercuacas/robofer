@@ -12,6 +12,7 @@ MenuController::Item MenuController::buildDefaultTree(){
   modos.children.push_back({"Angry", false, MenuAction::SET_ANGRY, {}});
   modos.children.push_back({"Sad",   false, MenuAction::SET_SAD,   {}});
   modos.children.push_back({"Happy", false, MenuAction::SET_HAPPY, {}});
+  modos.children.push_back({"Love",  false, MenuAction::SET_LOVE,  {}});
 
   Item wifi; wifi.label = "Wi-Fi"; wifi.is_submenu = true;
   wifi.children.push_back({"Status: --", false, MenuAction::NONE, {}});

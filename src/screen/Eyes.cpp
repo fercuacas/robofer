@@ -1,6 +1,7 @@
 #include "robofer/screen/Eyes.hpp"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
+#include <cmath>
 
 using namespace robo_eyes;
 
@@ -71,26 +72,37 @@ void RoboEyes::setBorderRadius(int l, int r){ eyeL_r_next_=eyeL_r_def_=l; eyeR_r
 void RoboEyes::setSpaceBetween(int px){ spaceBetweenNext_=spaceBetweenDefault_=px; }
 
 void RoboEyes::setMood(Mood m){
-  tired_ = angry_ = happy_ = frown_ = false;
+  tired_=angry_=happy_=frown_=love_=false;
   switch(m){
-    case TIRED:
+    case Mood::TIRED:
       tired_ = true;
       break;
-    case ANGRY:
+    case Mood::ANGRY:
       angry_ = true;
       break;
-    case HAPPY:
-    case BAILOTEO:
+    case Mood::HAPPY:
+    case Mood::BAILOTEO:
       happy_ = true;
       break;
-    case FROWN:
-    case BAILOTEO_WAIT:
+    case Mood::FROWN:
+    case Mood::BAILOTEO_WAIT:
       frown_ = true;
       break;
-    case DEFAULT:
+    case Mood::LOVE:
+      love_ = true;
+      eyeL_open_ = eyeR_open_ = true;
+      eyeL_h_next_ = eyeL_h_def_;
+      eyeR_h_next_ = eyeR_h_def_;
+      // ojos más juntos en modo LOVE
+      spaceBetweenNext_ = std::max(1, spaceBetweenDefault_/2);
+      break;
+    case Mood::DEFAULT:
     default:
+      // resto de modos: separación normal
+      spaceBetweenNext_ = spaceBetweenDefault_;
       break;
   }
+  setAutoblinker(!love_);
 }
 
 void RoboEyes::setPosition(Pos p){
@@ -126,7 +138,77 @@ void RoboEyes::fillRect(cv::Mat& img, int x, int y, int w, int h, int gray){
   if(w<=0||h<=0) return; cv::rectangle(img, cv::Rect(x,y,w,h), cv::Scalar(gray), cv::FILLED, cv::LINE_8);
 }
 
-void RoboEyes::fillCircle(cv::Mat& img, int cx, int cy, int r, int gray){ if(r>0) cv::circle(img, {cx,cy}, r, cv::Scalar(gray), cv::FILLED, cv::LINE_8); }
+void RoboEyes::fillCircle(cv::Mat& img, int cx, int cy, int r, int gray){
+  if(r>0) cv::circle(img, {cx,cy}, r, cv::Scalar(gray), cv::FILLED, cv::LINE_8);
+}
+
+void RoboEyes::fillHeart(cv::Mat& img, cv::Rect roi, int gray){
+  if(roi.width <= 0 || roi.height <= 0) return;
+  cv::Rect bounds(0, 0, img.cols, img.rows);
+  cv::Rect safe = roi & bounds;
+  if(safe.width <= 0 || safe.height <= 0) return;
+
+  constexpr double PI = 3.14159265358979323846;
+  double time = static_cast<double>(now_ms() % 1600) / 1600.0;
+  double pulse = std::sin(time * 2.0 * PI); // [-1,1], mismo en ambos ojos
+
+  int w = safe.width;
+  int h = safe.height;
+  if(w <= 3 || h <= 3) return;
+
+  // margen muy pequeño: corazones casi ocupan toda la celda
+  int margin = std::max(1, std::min(w,h) / 14);
+  int w0 = std::max(2, w - 2*margin);
+  int h0 = std::max(2, h - 2*margin);
+
+  // escala del latido: siempre <= 1.0 para no tocar bordes
+  double base_scale = 0.95;
+  double amp = 0.05;
+  double scale = base_scale + amp * pulse;          // ~[0.90,1.00]
+  double scale_x = scale;
+  double scale_y = scale;
+
+  cv::Mat mask = cv::Mat::zeros(h, w, CV_8UC1);
+  for(int y=0; y<h0; ++y){
+    double ny = (1.6 - 3.2 * static_cast<double>(y) / (h0 - 1)) / scale_y;
+    for(int x=0; x<w0; ++x){
+      double nx = ((2.0 * static_cast<double>(x) / (w0 - 1)) - 1.0) / scale_x;
+      double value = std::pow(nx*nx + ny*ny - 1.0, 3.0) - nx*nx*ny*ny*ny;
+      if(value <= 0.0){
+        mask.at<uint8_t>(margin + y, margin + x) = 255;
+      }
+    }
+  }
+
+  cv::Mat outer = mask.clone();
+  int border_px = std::max(1, std::min(w, h) / 10);
+  cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+                                             cv::Size(border_px*2+1, border_px*2+1));
+  cv::Mat inner;
+  cv::erode(outer, inner, kernel);
+  cv::Mat border;
+  cv::subtract(outer, inner, border);
+
+  cv::Mat highlight = cv::Mat::zeros(h, w, CV_8UC1);
+  int highlight_h = std::max(1, h0 / 3);
+  cv::Rect highlight_roi(margin, margin, w0, highlight_h);
+  if(highlight_roi.width > 0 && highlight_roi.height > 0){
+    outer(highlight_roi).copyTo(highlight(highlight_roi));
+  }
+
+  int inner_tone = std::clamp(gray, 0, 255);
+  int border_tone = std::clamp(gray - 110, 0, 255);
+  int highlight_tone = std::clamp(gray + 60, 0, 255);
+
+  cv::Rect slice(safe.x - roi.x, safe.y - roi.y, safe.width, safe.height);
+  cv::Mat border_mask = border(slice);
+  cv::Mat highlight_mask = highlight(slice);
+  cv::Mat outer_mask = outer(slice);
+
+  img(safe).setTo(cv::Scalar(inner_tone), outer_mask);
+  img(safe).setTo(cv::Scalar(highlight_tone), highlight_mask);
+  img(safe).setTo(cv::Scalar(border_tone), border_mask);
+}
 
 void RoboEyes::fillRoundRect(cv::Mat& img, int x, int y, int w, int h, int r, int gray){
   if(w<=0||h<=0) return;
@@ -338,6 +420,21 @@ void RoboEyes::drawEyes(){
 
   // Draw
   clear(canvas_, BGCOLOR);
+  if(love_){
+    int padL = std::max(1, std::min(eyeL_w_cur_, eyeL_h_cur_) / 12);
+    cv::Rect roiL(eyeLx_ + padL, eyeLy_ + padL,
+                  std::max(0, eyeL_w_cur_ - 2*padL),
+                  std::max(0, eyeL_h_cur_ - 2*padL));
+    fillHeart(canvas_, roiL, MAINCOLOR);
+    if(!cyclops_ && eyeR_w_cur_ > 0 && eyeR_h_cur_ > 0){
+      int padR = std::max(1, std::min(eyeR_w_cur_, eyeR_h_cur_) / 12);
+      cv::Rect roiR(eyeRx_ + padR, eyeRy_ + padR,
+                    std::max(0, eyeR_w_cur_ - 2*padR),
+                    std::max(0, eyeR_h_cur_ - 2*padR));
+      fillHeart(canvas_, roiR, MAINCOLOR);
+    }
+    return;
+  }
   // if (frown_) {
 
   //   eyeLx_next_ = screenConstraintX() / 2;
@@ -381,8 +478,38 @@ void RoboEyes::drawEyes(){
   return;
   }
   // base eyes
-  fillRoundRect(canvas_, eyeLx_, eyeLy_, eyeL_w_cur_, eyeL_h_cur_, eyeL_r_cur_, MAINCOLOR);
-  if(!cyclops_) fillRoundRect(canvas_, eyeRx_, eyeRy_, eyeR_w_cur_, eyeR_h_cur_, eyeR_r_cur_, MAINCOLOR);
+  if(love_){
+    cv::Scalar inner(235);
+    cv::Scalar border(80);
+    cv::Scalar highlight(255);
+    auto draw_love_eye = [&](int x, int y, int w, int h, int border_px){
+      cv::Rect outer_roi(x, y, w, h);
+      fillRoundRect(canvas_, outer_roi.x, outer_roi.y, outer_roi.width, outer_roi.height,
+                    std::max(4, std::min(outer_roi.width, outer_roi.height)/2), border[0]);
+      cv::Rect inner_roi = outer_roi;
+      inner_roi.x += border_px;
+      inner_roi.y += border_px;
+      inner_roi.width -= border_px*2;
+      inner_roi.height -= border_px*2;
+      if(inner_roi.width > 0 && inner_roi.height > 0){
+        fillRoundRect(canvas_, inner_roi.x, inner_roi.y, inner_roi.width, inner_roi.height,
+                      std::max(4, std::min(inner_roi.width, inner_roi.height)/2), inner[0]);
+        cv::Rect top_half(inner_roi.x, inner_roi.y,
+                          inner_roi.width, std::max(1, inner_roi.height/3));
+        fillRoundRect(canvas_, top_half.x, top_half.y, top_half.width, top_half.height,
+                      std::max(2, std::min(top_half.width, top_half.height)/2), highlight[0]);
+      }
+    };
+    int border_px = std::max(2, std::min(eyeL_w_cur_, eyeL_h_cur_) / 6);
+    draw_love_eye(eyeLx_, eyeLy_, eyeL_w_cur_, eyeL_h_cur_, border_px);
+    if(!cyclops_ && eyeR_w_cur_ > 0 && eyeR_h_cur_ > 0){
+      border_px = std::max(2, std::min(eyeR_w_cur_, eyeR_h_cur_) / 6);
+      draw_love_eye(eyeRx_, eyeRy_, eyeR_w_cur_, eyeR_h_cur_, border_px);
+    }
+  } else {
+    fillRoundRect(canvas_, eyeLx_, eyeLy_, eyeL_w_cur_, eyeL_h_cur_, eyeL_r_cur_, MAINCOLOR);
+    if(!cyclops_) fillRoundRect(canvas_, eyeRx_, eyeRy_, eyeR_w_cur_, eyeR_h_cur_, eyeR_r_cur_, MAINCOLOR);
+  }
 
   // mood transitions
   eyelidsTiredH_next_ = tired_ ? eyeL_h_cur_/2 : 0;

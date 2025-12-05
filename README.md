@@ -222,6 +222,7 @@ desde la última pulsación.
   * Angry → cambia humor a ANGRY
   * Sad → cambia a FROWN ("triste/ceño")
   * Happy → cambia a HAPPY
+  * Love → cambia a LOVE (ojos con corazones)
 * Wi-Fi → vacío por ahora (placeholder).
 * Apagar → ejecuta `sudo poweroff`.
 
