@@ -48,6 +48,12 @@ public:
    */
   void setAlsaDevice(const std::string& dev);
 
+  /**
+   * @brief Set playback volume as a percentage.
+   * @param volume Volume in range [0,100].
+   */
+  void setVolumePercent(int volume);
+
   /** @brief Rebuild the lookup table of available audio files. */
   void reindex();
 
@@ -132,6 +138,7 @@ private:
   std::vector<std::string> exts_;
   std::unordered_map<std::string, std::string> index_;
   std::string alsa_dev_;
+  int volume_percent_{50};
   pid_t child_pid_{-1};
   bool paused_{false};
   std::string current_file_;
