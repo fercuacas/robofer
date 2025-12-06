@@ -44,6 +44,11 @@ AudioPlayer::~AudioPlayer() {
 void AudioPlayer::setSearchPaths(const std::vector<std::string>& paths){ paths_ = paths; }
 void AudioPlayer::setExtensions(const std::vector<std::string>& exts){ exts_ = exts; }
 void AudioPlayer::setAlsaDevice(const std::string& dev){ alsa_dev_ = dev; }
+void AudioPlayer::setVolumePercent(int volume){
+  if(volume < 0) volume = 0;
+  if(volume > 100) volume = 100;
+  volume_percent_ = volume;
+}
 
 std::string AudioPlayer::toLower(std::string s) const{
   std::transform(s.begin(), s.end(), s.begin(),
@@ -139,6 +144,8 @@ bool AudioPlayer::spawnPlayer(const std::string& filepath){
       cmd.push_back("-nodisp");
       cmd.push_back("-loglevel");
       cmd.push_back("error");
+      cmd.push_back("-volume");
+      cmd.push_back(std::to_string(volume_percent_));
       cmd.push_back(filepath);
     } else {
       std::cerr << "[AudioPlayer] No se encontró reproductor WAV (aplay/ffplay).\n";
@@ -147,6 +154,11 @@ bool AudioPlayer::spawnPlayer(const std::string& filepath){
   } else if(is_mp3){
     if(auto exe = findExecutable("mpg123")){
       push_common(*exe);
+      int scale = static_cast<int>(32768.0 * (static_cast<double>(volume_percent_) / 100.0));
+      if(scale < 0) scale = 0;
+      if(scale > 32768) scale = 32768;
+      cmd.push_back("-f");
+      cmd.push_back(std::to_string(scale));
       if(!alsa_dev_.empty()){
         cmd.push_back("-a");
         cmd.push_back(alsa_dev_);
@@ -158,6 +170,8 @@ bool AudioPlayer::spawnPlayer(const std::string& filepath){
       cmd.push_back("-nodisp");
       cmd.push_back("-loglevel");
       cmd.push_back("error");
+      cmd.push_back("-volume");
+      cmd.push_back(std::to_string(volume_percent_));
       cmd.push_back(filepath);
     } else {
       std::cerr << "[AudioPlayer] No se encontró reproductor MP3 (mpg123/ffplay).\n";
