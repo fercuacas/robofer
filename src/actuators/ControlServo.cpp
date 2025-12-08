@@ -17,6 +17,10 @@ ControlServo::ControlServo(rclcpp::Node *node,
   }
   for(size_t i = 0; i < servos_.size(); ++i){
     servos_[i].id_ = static_cast<int>(i);
+    servos_[i].current_angle_ = neutral_angle_[i];
+    servos_[i].target_angle_  = neutral_angle_[i];
+    servos_[i].speed_         = 0.0f;
+    servos_[i].has_target_    = false;
   }
   if(!sim_){
     chip_ = gpiod_chip_open_by_name(chip_name.c_str());
@@ -70,7 +74,13 @@ void ControlServo::stop(int id){
 }
 
 void ControlServo::setIdle(int id){
-  moveTo(id, 0.0f, 90.0f);
+  if(id < 0 || id >= (int)servos_.size()) return;
+  moveTo(id, neutral_angle_[id], 90.0f);
+}
+
+void ControlServo::setNeutralAngle(int id, float angle_deg){
+  if(id < 0 || id >= (int)servos_.size()) return;
+  neutral_angle_[id] = angle_deg;
 }
 
 void ControlServo::threadFunc(Servo &s){
@@ -90,11 +100,13 @@ void ControlServo::threadFunc(Servo &s){
       } else {
         ang += (tgt > ang ? 1.f : -1.f) * step;
       }
-      s.current_angle_ = ang;
     } else {
       ang += s.speed_.load() * 0.02f;
-      s.current_angle_ = ang;
     }
+
+    // Mantén el “ángulo lógico” acotado para evitar valores enormes
+    ang = std::clamp(ang, 0.0f, 180.0f);
+    s.current_angle_ = ang;
 
     if(angle_pub_){
       robofer::msg::ServoGoal msg;
@@ -103,8 +115,7 @@ void ControlServo::threadFunc(Servo &s){
       angle_pub_->publish(msg);
     }
 
-    float clamped = std::clamp(ang, 0.0f, 180.0f);
-    float pw = min_pw + (clamped / 180.0f) * (max_pw - min_pw);
+    float pw = min_pw + (ang / 180.0f) * (max_pw - min_pw);
     if(!sim_ && s.line_){
       gpiod_line_set_value(s.line_, 1);
       std::this_thread::sleep_for(std::chrono::microseconds((int)pw));
@@ -117,4 +128,3 @@ void ControlServo::threadFunc(Servo &s){
 }
 
 } // namespace robo_servos
-

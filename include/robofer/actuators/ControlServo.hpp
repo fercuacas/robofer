@@ -66,6 +66,13 @@ public:
    */
   void setIdle(int id);
 
+  /**
+   * @brief Set neutral angle used for idle.
+   * @param id Servo identifier.
+   * @param angle_deg Neutral angle in degrees.
+   */
+  void setNeutralAngle(int id, float angle_deg);
+
 private:
   struct Servo {
     int id_{0};
@@ -81,6 +88,7 @@ private:
   gpiod_chip *chip_{nullptr};
   std::array<Servo, 2> servos_;
   bool sim_{false};
+  std::array<float, 2> neutral_angle_{{90.0f, 90.0f}};
   rclcpp::Publisher<robofer::msg::ServoGoal>::SharedPtr angle_pub_;
 
   /**
@@ -91,4 +99,3 @@ private:
 };
 
 } // namespace robo_servos
-

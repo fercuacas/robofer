@@ -22,11 +22,33 @@ public:
     ctx.publishMood(Mood::HAPPY);
     ctx.publishIdle(true);
     ctx.publishEyePos(robo_eyes::Pos::CENTER);
-    ctx.servos_.setSpeed(0, 360.0f);
-    ctx.servos_.setSpeed(1,-360.0f);
+    last_switch_ = std::chrono::steady_clock::now();
+    forward_ = true;
+    // Velocidad moderada en continuo
+    ctx.servos_.setSpeed(0, 60.0f);
+    ctx.servos_.setSpeed(1,-60.0f);
     if(ctx.audio_ && !ctx.happy_sound_.empty())
       ctx.audio_->play(ctx.happy_sound_);
   }
+
+  void onUpdate(StateHandler &ctx) override {
+    auto now = std::chrono::steady_clock::now();
+    if(now - last_switch_ < std::chrono::milliseconds(800)) return;
+    last_switch_ = now;
+    forward_ = !forward_;
+    float v = 60.0f;
+    ctx.servos_.setSpeed(0, forward_ ?  v : -v);
+    ctx.servos_.setSpeed(1, forward_ ? -v :  v);
+  }
+
+  void onExit(StateHandler &ctx) override {
+    ctx.servos_.setIdle(0);
+    ctx.servos_.setIdle(1);
+  }
+
+private:
+  bool forward_{true};
+  std::chrono::steady_clock::time_point last_switch_{};
 };
 
 class StateHandler::AngryState : public StateHandler::State {
@@ -40,6 +62,11 @@ public:
     ctx.servos_.moveTo(1,150.0f, 120.0f);
     if(ctx.audio_ && !ctx.angry_sound_.empty())
       ctx.audio_->play(ctx.angry_sound_);
+  }
+
+  void onExit(StateHandler &ctx) override {
+    ctx.servos_.setIdle(0);
+    ctx.servos_.setIdle(1);
   }
 };
 
@@ -63,8 +90,8 @@ public:
     RCLCPP_INFO(ctx.get_logger(), "Entering LOVE state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::LOVE);
     ctx.mood_pub_->publish(msg);
-    ctx.servos_.moveTo(0, 90.0f, 60.0f);
-    ctx.servos_.moveTo(1, 90.0f, 60.0f);
+    ctx.servos_.setIdle(0);
+    ctx.servos_.setIdle(1);
     if(ctx.audio_ && !ctx.love_sound_.empty())
       ctx.audio_->play(ctx.love_sound_);
   }
@@ -214,6 +241,10 @@ StateHandler::StateHandler()
   audio_(nullptr)
 {
   bool sim = get_parameter("sim").as_bool();
+  float neutral1 = declare_parameter<float>("servo1_neutral_deg", 90.0f);
+  float neutral2 = declare_parameter<float>("servo2_neutral_deg", 90.0f);
+  servos_.setNeutralAngle(0, neutral1);
+  servos_.setNeutralAngle(1, neutral2);
   audio_ = std::make_unique<robo_audio::AudioPlayer>(sim);
   audio_->reindex();
   happy_sound_ = declare_parameter<std::string>("happy_sound", "");
