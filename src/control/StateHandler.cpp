@@ -24,9 +24,10 @@ public:
     ctx.publishEyePos(robo_eyes::Pos::CENTER);
     last_switch_ = std::chrono::steady_clock::now();
     forward_ = true;
-    // Velocidad moderada en continuo
-    ctx.servos_.setSpeed(0, 60.0f);
-    ctx.servos_.setSpeed(1,-60.0f);
+    // Desplaza un poco desde el neutro para girar en sentidos opuestos
+    float delta = 10.0f; // ajuste de “velocidad”
+    ctx.servos_.setAngleFromNeutral(0, +delta);
+    ctx.servos_.setAngleFromNeutral(1, -delta);
     if(ctx.audio_ && !ctx.happy_sound_.empty())
       ctx.audio_->play(ctx.happy_sound_);
   }
@@ -36,9 +37,14 @@ public:
     if(now - last_switch_ < std::chrono::milliseconds(800)) return;
     last_switch_ = now;
     forward_ = !forward_;
-    float v = 60.0f;
-    ctx.servos_.setSpeed(0, forward_ ?  v : -v);
-    ctx.servos_.setSpeed(1, forward_ ? -v :  v);
+    float delta = 10.0f;
+    if(forward_){
+      ctx.servos_.setAngleFromNeutral(0, +delta);
+      ctx.servos_.setAngleFromNeutral(1, -delta);
+    } else {
+      ctx.servos_.setAngleFromNeutral(0, -delta);
+      ctx.servos_.setAngleFromNeutral(1, +delta);
+    }
   }
 
   void onExit(StateHandler &ctx) override {

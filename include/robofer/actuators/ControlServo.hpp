@@ -73,6 +73,20 @@ public:
    */
   void setNeutralAngle(int id, float angle_deg);
 
+  /**
+   * @brief Set servo output angle immediately (no ramp).
+   * @param id Servo identifier.
+   * @param angle_deg Logical angle [0,180].
+   */
+  void setAngleImmediate(int id, float angle_deg);
+
+  /**
+   * @brief Set servo output angle relative to neutral.
+   * @param id Servo identifier.
+   * @param delta_deg Offset from neutral (can be negative).
+   */
+  void setAngleFromNeutral(int id, float delta_deg);
+
 private:
   struct Servo {
     int id_{0};

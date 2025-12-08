@@ -83,6 +83,22 @@ void ControlServo::setNeutralAngle(int id, float angle_deg){
   neutral_angle_[id] = angle_deg;
 }
 
+void ControlServo::setAngleImmediate(int id, float angle_deg){
+  if(id < 0 || id >= (int)servos_.size()) return;
+  float ang = std::clamp(angle_deg, 0.0f, 180.0f);
+  servos_[id].current_angle_ = ang;
+  servos_[id].target_angle_  = ang;
+  servos_[id].speed_         = 0.0f;
+  servos_[id].has_target_    = false;
+  servos_[id].pwm_enabled_   = true;
+}
+
+void ControlServo::setAngleFromNeutral(int id, float delta_deg){
+  if(id < 0 || id >= (int)servos_.size()) return;
+  float base = neutral_angle_[id];
+  setAngleImmediate(id, base + delta_deg);
+}
+
 void ControlServo::threadFunc(Servo &s){
   using clock = std::chrono::steady_clock;
   const float min_pw = 1000.0f; // microseconds
