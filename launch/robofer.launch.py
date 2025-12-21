@@ -21,9 +21,9 @@ def generate_launch_description():
             "sim": False,
             "gpiochip": "gpiochip0",
             "servo1_offset": 73,
-            "servo2_offset": -1,
+            "servo2_offset": 74,
             "servo1_neutral_deg": 75.0,
-            "servo2_neutral_deg": 90.0,
+            "servo2_neutral_deg": 80.0,
         }],
     )
 
@@ -65,4 +65,5 @@ def generate_launch_description():
         bt_manager_node,
         bt_provision_node,
     ])
+
 

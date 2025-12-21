@@ -83,10 +83,10 @@ ButtonsNode::ButtonsNode() : Node("buttons_node")
   const bool rising = this->declare_parameter<bool>("rising_on_press", true);
   const int  debounce = this->declare_parameter<int>("debounce_ms", 150);
 
-  const int btn1_off = this->declare_parameter<int>("btn1_offset", 71);
-  const int btn2_off = this->declare_parameter<int>("btn2_offset", 70);
-  const int btn3_off = this->declare_parameter<int>("btn3_offset", 69);
-  const int btn4_off = this->declare_parameter<int>("btn4_offset", 72);
+  const int btn1_off = this->declare_parameter<int>("btn1_offset", 72);
+  const int btn2_off = this->declare_parameter<int>("btn2_offset", 69);
+  const int btn3_off = this->declare_parameter<int>("btn3_offset", 71);
+  const int btn4_off = this->declare_parameter<int>("btn4_offset", 70);
 
   const int btn1_code = this->declare_parameter<int>("btn1_code", 0);
   const int btn2_code = this->declare_parameter<int>("btn2_code", 1);
