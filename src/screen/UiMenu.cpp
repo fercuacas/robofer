@@ -13,6 +13,7 @@ MenuController::Item MenuController::buildDefaultTree(){
   modos.children.push_back({"Sad",   false, MenuAction::SET_SAD,   {}});
   modos.children.push_back({"Happy", false, MenuAction::SET_HAPPY, {}});
   modos.children.push_back({"Puxaine", false, MenuAction::SET_PUXAINE, {}});
+  modos.children.push_back({"Peo", false, MenuAction::SET_PEO, {}});
   modos.children.push_back({"Love",  false, MenuAction::SET_LOVE,  {}});
 
   Item wifi; wifi.label = "Wi-Fi"; wifi.is_submenu = true;
@@ -295,4 +296,3 @@ void MenuController::drawItems(cv::Mat& img, const std::vector<Item>& items, int
 }
 
 } // namespace robo_ui
-

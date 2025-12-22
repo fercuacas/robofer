@@ -22,6 +22,7 @@ enum class MenuAction {
   SET_SAD,
   SET_HAPPY,
   SET_PUXAINE,
+  SET_PEO,
   SET_LOVE,
   POWEROFF,
   BT_CONNECT,
@@ -185,4 +186,3 @@ private:
 };
 
 } // namespace robo_ui
-

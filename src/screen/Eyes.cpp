@@ -87,6 +87,7 @@ void RoboEyes::setMood(Mood m){
       break;
     case Mood::FROWN:
     case Mood::BAILOTEO_WAIT:
+    case Mood::PEO:
       frown_ = true;
       break;
     case Mood::LOVE:
