@@ -8,6 +8,7 @@
 #include <chrono>
 #include <regex>
 #include <atomic>
+#include <vector>
 #include "robofer/bluetoothctl_agent.hpp"
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -78,7 +79,9 @@ int main(int argc, char** argv){
   bool music_mode = false;
   robo_ui::VolumeMenu volume_menu;
   bool volume_mode = false;
-  bool poweroff_pending = false;
+  enum class PoweroffMode { NONE, FAST, REFLEXIVE };
+  PoweroffMode poweroff_mode = PoweroffMode::NONE;
+  int poweroff_stage = 0;
   std::atomic<Mood> current_mood{Mood::DEFAULT};
   std::atomic<Mood> base_mood{Mood::DEFAULT};
   Mood last_regular_mood = Mood::ESPERA;
@@ -109,6 +112,25 @@ int main(int argc, char** argv){
                     ? Mood::BAILOTEO
                     : (bailoteo_active ? Mood::BAILOTEO_WAIT : last_regular_mood);
     send_mode(target);
+  };
+
+  std::string modos_dir = home_env
+    ? (std::string(home_env) + "/Music/Modos/")
+    : "/Music/Modos/";
+  std::vector<std::string> poweroff_track1{
+    modos_dir + "apgado1.mp3",
+    modos_dir + "apagado1.mp3"
+  };
+  std::vector<std::string> poweroff_track2{
+    modos_dir + "apagado2.mp3",
+    modos_dir + "apgado2.mp3"
+  };
+
+  auto play_first_available = [&](const std::vector<std::string>& candidates){
+    for(const auto& path : candidates){
+      if(audio_player.play(path)) return true;
+    }
+    return false;
   };
 
   music_menu.setBailoteoHandler([&](bool active, bool playing, bool paused){
@@ -181,29 +203,28 @@ int main(int argc, char** argv){
         if(menu_ptr) menu_ptr->hide();
         RCLCPP_INFO(log, "MenuAction -> mode ESPERA");
         break;
-      case MenuAction::POWEROFF:
-        if(poweroff_pending) break;
+      case MenuAction::POWEROFF_FAST:
+      case MenuAction::POWEROFF_REFLEXIVE:
+        if(poweroff_mode != PoweroffMode::NONE) break;
         if(menu_ptr) menu_ptr->hide();
         music_mode = false;
         volume_mode = false;
         music_menu.cancelBailoteo();
         audio_player.stop();
-        poweroff_pending = true;
+        poweroff_mode = (a == MenuAction::POWEROFF_FAST)
+                          ? PoweroffMode::FAST
+                          : PoweroffMode::REFLEXIVE;
+        poweroff_stage = 0;
         if(poweroff_pub){
           std_msgs::msg::Bool msg;
           msg.data = true;
           poweroff_pub->publish(msg);
         }
-        if(home_env){
-          std::string path = std::string(home_env) + "/Music/Modos/apagar.mp3";
-          if(audio_player.play(path)){
-            RCLCPP_WARN(log, "MenuAction: POWEROFF (reproduciendo apagar.mp3)");
-            break;
-          }
+        if(poweroff_mode == PoweroffMode::FAST){
+          RCLCPP_WARN(log, "MenuAction: POWEROFF_FAST");
+        } else {
+          RCLCPP_WARN(log, "MenuAction: POWEROFF_REFLEXIVE");
         }
-        RCLCPP_WARN(log, "MenuAction: POWEROFF (audio no disponible, apagando)");
-        std::system("sudo poweroff &");
-        poweroff_pending = false;
         break;
       case MenuAction::MUSIC_MENU:
         RCLCPP_INFO(log, "MenuAction: MUSIC_MENU");
@@ -295,7 +316,7 @@ int main(int argc, char** argv){
     "/ui/button", 10,
     [&](const std_msgs::msg::Int32::SharedPtr msg){
       std::lock_guard<std::mutex> lk(ui_mtx);
-      if(poweroff_pending) return;
+      if(poweroff_mode != PoweroffMode::NONE) return;
       int v = msg->data;
       if(v < 0 || v > 3) return;
       UiKey key = static_cast<UiKey>(v);
@@ -417,13 +438,33 @@ int main(int argc, char** argv){
     bool music_playing_now = false;
     {
       std::lock_guard<std::mutex> lk(ui_mtx);
-      if(poweroff_pending){
+      if(poweroff_mode != PoweroffMode::NONE){
         eye_action = EyeAction::NONE;
         eyes.setCuriosity(false);
+        eyes.setAutoblinker(false);
+        eyes.close();
         eyes.setMood(Mood::TIRED);
-        if(!audio_player.isPlaying()){
-          std::system("sudo poweroff &");
-          poweroff_pending = false;
+        if(poweroff_mode == PoweroffMode::FAST){
+          if(poweroff_stage == 0){
+            std::system("sudo poweroff &");
+            poweroff_stage = 1;
+          }
+        } else if(poweroff_mode == PoweroffMode::REFLEXIVE){
+          if(poweroff_stage == 0){
+            if(play_first_available(poweroff_track1)) poweroff_stage = 1;
+            else poweroff_stage = 2;
+          } else if(poweroff_stage == 1){
+            if(!audio_player.isPlaying()) poweroff_stage = 2;
+          } else if(poweroff_stage == 2){
+            if(play_first_available(poweroff_track2)) poweroff_stage = 3;
+            else poweroff_stage = 4;
+          } else if(poweroff_stage == 3){
+            if(!audio_player.isPlaying()) poweroff_stage = 4;
+          }
+          if(poweroff_stage == 4){
+            std::system("sudo poweroff &");
+            poweroff_stage = 5;
+          }
         }
       }
       music_playing_now = audio_player.isPlaying();

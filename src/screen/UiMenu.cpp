@@ -35,9 +35,10 @@ MenuController::Item MenuController::buildDefaultTree(){
   Item music; music.label = "Music"; music.is_submenu = false; music.action = MenuAction::MUSIC_MENU;
   Item volume; volume.label = "Volumen"; volume.is_submenu = false; volume.action = MenuAction::VOLUME_MENU;
 
-  Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
+  Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF_FAST;
+  Item apagar_reflex; apagar_reflex.label = "Apagado reflexivo"; apagar_reflex.is_submenu = false; apagar_reflex.action = MenuAction::POWEROFF_REFLEXIVE;
 
-  root.children = {modos, wifi, bt, music, volume, apagar};
+  root.children = {modos, wifi, bt, music, volume, apagar, apagar_reflex};
   return root;
 }
 
