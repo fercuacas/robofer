@@ -58,6 +58,7 @@ private:
   class BailoteoState;
   class BailoteoWaitingState;
   class PuxaineState;
+  class PeoState;
 
   friend class HappyState;
   friend class AngryState;
@@ -66,6 +67,7 @@ private:
   friend class BailoteoState;
   friend class BailoteoWaitingState;
   friend class PuxaineState;
+  friend class PeoState;
 
   /**
    * @brief Change the active mood/state.
