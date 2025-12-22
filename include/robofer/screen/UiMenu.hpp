@@ -24,6 +24,7 @@ enum class MenuAction {
   SET_PUXAINE,
   SET_PEO,
   SET_LOVE,
+  SET_ESPERA,
   POWEROFF,
   BT_CONNECT,
   BT_ACCEPT,
@@ -68,6 +69,11 @@ public:
    * @param canvas Target image.
    */
   void draw(cv::Mat& canvas);
+
+  /**
+   * @brief Hide the menu immediately.
+   */
+  void hide();
 
   /**
    * @brief Configure inactivity timeout in milliseconds (default 5000).

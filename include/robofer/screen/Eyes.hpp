@@ -33,7 +33,8 @@ enum Mood : uint8_t {
   BAILOTEO = 6,
   LOVE = 7,
   PUXAINE = 8,
-  PEO = 9
+  PEO = 9,
+  ESPERA = 10
 };
 
 /** Predefined gaze positions */
@@ -270,6 +271,7 @@ public:
   int getScreenConstraint_Y() const;
     uint64_t frownFlickerLastChange_ = 0;
   int frownFlickerIntervalMs_ = 100; // cambia cada 100ms (~10 Hz)
+  int frownFlickerAmp_ = 2;
 private:
   // time helpers
   /**

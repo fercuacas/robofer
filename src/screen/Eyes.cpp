@@ -90,6 +90,9 @@ void RoboEyes::setMood(Mood m){
     case Mood::PEO:
       frown_ = true;
       break;
+    case Mood::ESPERA:
+      // Espera se comporta como modo neutro
+      break;
     case Mood::LOVE:
       love_ = true;
       eyeL_open_ = eyeR_open_ = true;
@@ -401,7 +404,7 @@ void RoboEyes::drawEyes(){
   }
   int draw_off_x = 0;
   if (frown_) {
-    int amp = hFlickAmp_; // amplitud del temblor
+    int amp = frownFlickerAmp_; // amplitud del temblor
     uint64_t now = now_ms();
 
     // Solo alternar si ha pasado el tiempo deseado

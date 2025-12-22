@@ -120,7 +120,7 @@ void ControlServo::threadFunc(Servo &s){
       ang += s.speed_.load() * 0.02f;
     }
 
-    // Mantén el “ángulo lógico” acotado para evitar valores enormes
+    // Mantener el angulo logico acotado para evitar valores enormes
     ang = std::clamp(ang, 0.0f, 180.0f);
     s.current_angle_ = ang;
 

@@ -15,6 +15,7 @@ MenuController::Item MenuController::buildDefaultTree(){
   modos.children.push_back({"Puxaine", false, MenuAction::SET_PUXAINE, {}});
   modos.children.push_back({"Peo", false, MenuAction::SET_PEO, {}});
   modos.children.push_back({"Love",  false, MenuAction::SET_LOVE,  {}});
+  modos.children.push_back({"Espera", false, MenuAction::SET_ESPERA, {}});
 
   Item wifi; wifi.label = "Wi-Fi"; wifi.is_submenu = true;
   wifi.children.push_back({"Status: --", false, MenuAction::NONE, {}});
@@ -47,6 +48,9 @@ MenuController::MenuController(std::function<void(MenuAction)> on_action)
 
 void MenuController::setTimeoutMs(int ms){ timeout_ms_ = std::max(0, ms); }
 void MenuController::setFontScale(double s){ font_scale_ = std::clamp(s, 0.1, 2.0); }
+void MenuController::hide(){
+  last_key_time_ = clock::now() - std::chrono::milliseconds(timeout_ms_ + 1);
+}
 
 void MenuController::setWifiStatus(bool connected, const std::string& ssid){
   if(root_.children.size() > 1){

@@ -5,6 +5,7 @@
 #include <std_msgs/msg/bool.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 #include <cstdlib>
+#include <chrono>
 #include <regex>
 #include <atomic>
 #include "robofer/bluetoothctl_agent.hpp"
@@ -71,11 +72,21 @@ int main(int argc, char** argv){
   robo_ui::MusicMenu music_menu(audio_player);
   bool music_mode = false;
   std::atomic<Mood> current_mood{Mood::DEFAULT};
-  Mood last_regular_mood = Mood::FROWN;
-  Mood last_sent_mode = Mood::FROWN;
+  std::atomic<Mood> base_mood{Mood::DEFAULT};
+  Mood last_regular_mood = Mood::ESPERA;
+  Mood last_sent_mode = Mood::ESPERA;
   bool bailoteo_active = false;
   bool bailoteo_playing = false;
   bool bailoteo_paused = false;
+  enum class EyeAction : uint8_t { NONE=0, TIRED=1, FROWN=2, CURIOUS=3, LAUGH=4, CONFUSED=5 };
+  EyeAction eye_action = EyeAction::NONE;
+  std::chrono::steady_clock::time_point action_until{};
+  std::chrono::steady_clock::time_point action_tick{};
+  auto action_duration = [](EyeAction action){
+    return (action == EyeAction::CURIOUS)
+      ? std::chrono::seconds(6)
+      : std::chrono::seconds(3);
+  };
 
   auto send_mode = [&](Mood mood){
     if(last_sent_mode == mood) return;
@@ -119,16 +130,19 @@ int main(int argc, char** argv){
       case MenuAction::SET_ANGRY:
         last_regular_mood = Mood::ANGRY;
         update_bailoteo_state();
+        if(menu_ptr) menu_ptr->hide();
         RCLCPP_INFO(log, "MenuAction -> mode ANGRY");
         break;
       case MenuAction::SET_SAD:
         last_regular_mood = Mood::FROWN;
         update_bailoteo_state();
+        if(menu_ptr) menu_ptr->hide();
         RCLCPP_INFO(log, "MenuAction -> mode SAD");
         break;
       case MenuAction::SET_HAPPY:
         last_regular_mood = Mood::HAPPY;
         update_bailoteo_state();
+        if(menu_ptr) menu_ptr->hide();
         RCLCPP_INFO(log, "MenuAction -> mode HAPPY");
         break;
       case MenuAction::SET_PUXAINE:
@@ -137,19 +151,28 @@ int main(int argc, char** argv){
         bailoteo_paused = false;
         last_regular_mood = Mood::PUXAINE;
         update_bailoteo_state();
+        if(menu_ptr) menu_ptr->hide();
         RCLCPP_INFO(log, "MenuAction -> mode PUXAINE");
         break;
       case MenuAction::SET_PEO:
         last_regular_mood = Mood::PEO;
         update_bailoteo_state();
+        if(menu_ptr) menu_ptr->hide();
         RCLCPP_INFO(log, "MenuAction -> mode PEO");
         break;
       case MenuAction::SET_LOVE: {
         std_msgs::msg::UInt8 msg;
         msg.data = static_cast<uint8_t>(Mood::LOVE);
         mode_pub->publish(msg);
+        if(menu_ptr) menu_ptr->hide();
         RCLCPP_INFO(log, "MenuAction -> mode LOVE");
         break; }
+      case MenuAction::SET_ESPERA:
+        last_regular_mood = Mood::ESPERA;
+        update_bailoteo_state();
+        if(menu_ptr) menu_ptr->hide();
+        RCLCPP_INFO(log, "MenuAction -> mode ESPERA");
+        break;
       case MenuAction::POWEROFF:
         RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
         std::system("sudo poweroff &");
@@ -261,8 +284,41 @@ int main(int argc, char** argv){
     [&](const std_msgs::msg::UInt8::SharedPtr msg){
       Mood m_val = static_cast<Mood>(msg->data);
       current_mood.store(m_val, std::memory_order_relaxed);
+      base_mood.store(m_val, std::memory_order_relaxed);
       std::lock_guard<std::mutex> lk(ui_mtx);
       eyes.setMood(m_val);
+    });
+
+  auto sub_action = node->create_subscription<std_msgs::msg::UInt8>(
+    "/eyes/action", 10,
+    [&](const std_msgs::msg::UInt8::SharedPtr msg){
+      auto action = static_cast<EyeAction>(msg->data);
+      auto now = std::chrono::steady_clock::now();
+      eye_action = action;
+      action_until = now + action_duration(action);
+      action_tick = now;
+      std::lock_guard<std::mutex> lk(ui_mtx);
+      switch(action){
+        case EyeAction::TIRED:
+          eyes.setMood(Mood::TIRED);
+          break;
+        case EyeAction::FROWN:
+          eyes.setMood(Mood::FROWN);
+          break;
+        case EyeAction::CURIOUS:
+          eyes.setCuriosity(true);
+          eyes.setPosition(robo_eyes::Pos::E);
+          break;
+        case EyeAction::LAUGH:
+          eyes.anim_laugh();
+          break;
+        case EyeAction::CONFUSED:
+          eyes.anim_confused();
+          break;
+        case EyeAction::NONE:
+        default:
+          break;
+      }
     });
 
   auto eye_pos_sub = node->create_subscription<std_msgs::msg::UInt8>(
@@ -319,6 +375,43 @@ int main(int argc, char** argv){
 
     {
       std::lock_guard<std::mutex> lk(ui_mtx);
+      auto now = std::chrono::steady_clock::now();
+      if(eye_action != EyeAction::NONE){
+        if(now >= action_until){
+          eye_action = EyeAction::NONE;
+          eyes.setCuriosity(false);
+          eyes.setMood(base_mood.load(std::memory_order_relaxed));
+        } else {
+          switch(eye_action){
+            case EyeAction::TIRED:
+              eyes.setMood(Mood::TIRED);
+              break;
+            case EyeAction::FROWN:
+              eyes.setMood(Mood::FROWN);
+              break;
+            case EyeAction::CURIOUS:
+              eyes.setCuriosity(true);
+              eyes.setPosition(robo_eyes::Pos::E);
+              break;
+            case EyeAction::LAUGH:
+              if(now - action_tick >= std::chrono::milliseconds(400)){
+                eyes.anim_laugh();
+                action_tick = now;
+              }
+              break;
+            case EyeAction::CONFUSED:
+              if(now - action_tick >= std::chrono::milliseconds(400)){
+                eyes.anim_confused();
+                action_tick = now;
+              }
+              break;
+            case EyeAction::NONE:
+            default:
+              break;
+          }
+        }
+      }
+
       eyes.update();
       const cv::Mat& m = eyes.frame();
       canvas.setTo(cv::Scalar(0,0,0));
