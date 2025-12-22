@@ -444,17 +444,33 @@ public:
     ctx.servos_.setPwmEnabled(1, false);
     next_action_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
 
+    if(ctx.music_playing_.load(std::memory_order_relaxed)) return;
     if(ctx.pending_return_){
+      if(ctx.playRandomReturnTrack()){
+        ctx.pending_return_ = false;
+        return;
+      }
       ctx.pending_return_ = false;
-      if(ctx.playRandomReturnTrack()) return;
     }
     if(!ctx.welcome_played_){
       ctx.welcome_played_ = true;
-      ctx.playModesTrack("bienvenido.mp3");
+      if(ctx.playModesTrack("bienvenido.mp3")) return;
     }
   }
 
   void onUpdate(StateHandler &ctx) override {
+    if(ctx.music_playing_.load(std::memory_order_relaxed)) return;
+    if(ctx.pending_return_){
+      if(ctx.playRandomReturnTrack()){
+        ctx.pending_return_ = false;
+        return;
+      }
+      ctx.pending_return_ = false;
+    }
+    if(!ctx.welcome_played_){
+      ctx.welcome_played_ = true;
+      if(ctx.playModesTrack("bienvenido.mp3")) return;
+    }
     if(!ctx.audio_) return;
     if(ctx.audio_->isPlaying()) return;
     auto now = std::chrono::steady_clock::now();
@@ -865,6 +881,9 @@ StateHandler::StateHandler()
   poweroff_sub_ = create_subscription<std_msgs::msg::Bool>(
       "/system/poweroff", 10,
       std::bind(&StateHandler::poweroffCallback, this, std::placeholders::_1));
+  music_playing_sub_ = create_subscription<std_msgs::msg::Bool>(
+      "/music/playing", 10,
+      std::bind(&StateHandler::musicPlayingCallback, this, std::placeholders::_1));
   timer_ = create_wall_timer(50ms, std::bind(&StateHandler::update, this));
   setState(Mood::ESPERA);
 }
@@ -950,6 +969,10 @@ void StateHandler::poweroffCallback(const std_msgs::msg::Bool::SharedPtr msg) {
   servos_.stop(1);
   servos_.setPwmEnabled(0, false);
   servos_.setPwmEnabled(1, false);
+}
+
+void StateHandler::musicPlayingCallback(const std_msgs::msg::Bool::SharedPtr msg) {
+  music_playing_.store(msg->data, std::memory_order_relaxed);
 }
 
 void StateHandler::setState(Mood m) {

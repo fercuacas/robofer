@@ -57,6 +57,7 @@ int main(int argc, char** argv){
 
   auto mode_pub = node->create_publisher<std_msgs::msg::UInt8>("/mode", 10);
   auto poweroff_pub = node->create_publisher<std_msgs::msg::Bool>("/system/poweroff", 1);
+  auto music_playing_pub = node->create_publisher<std_msgs::msg::Bool>("/music/playing", 10);
   auto bt_power_client = node->create_client<std_srvs::srv::SetBool>("/bluetooth/power");
   auto bt_pair_client  = node->create_client<std_srvs::srv::SetBool>("/bluetooth/pair_response");
 
@@ -413,6 +414,7 @@ int main(int argc, char** argv){
   while(rclcpp::ok()){
     rclcpp::spin_some(node);
 
+    bool music_playing_now = false;
     {
       std::lock_guard<std::mutex> lk(ui_mtx);
       if(poweroff_pending){
@@ -424,6 +426,7 @@ int main(int argc, char** argv){
           poweroff_pending = false;
         }
       }
+      music_playing_now = audio_player.isPlaying();
       auto now = std::chrono::steady_clock::now();
       if(eye_action != EyeAction::NONE){
         if(now >= action_until){
@@ -491,6 +494,11 @@ int main(int argc, char** argv){
       }
     }
 
+    if(music_playing_pub){
+      std_msgs::msg::Bool msg;
+      msg.data = music_playing_now;
+      music_playing_pub->publish(msg);
+    }
     display->pushMono8(canvas);
     rate.sleep();
   }
