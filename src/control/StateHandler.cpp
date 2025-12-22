@@ -23,45 +23,151 @@ public:
     ctx.publishMood(Mood::HAPPY);
     ctx.publishIdle(true);
     ctx.publishEyePos(robo_eyes::Pos::CENTER);
-    entered_ = std::chrono::steady_clock::now();
+    ctx.servos_.setPwmEnabled(0, true);
+    ctx.servos_.setPwmEnabled(1, true);
     last_switch_ = std::chrono::steady_clock::now();
     forward_ = true;
     // Desplaza un poco desde el neutro para girar en sentidos opuestos
     float delta = 10.0f; // ajuste de velocidad
     ctx.servos_.setAngleFromNeutral(0, +delta);
     ctx.servos_.setAngleFromNeutral(1, -delta);
-    if(ctx.audio_ && !ctx.happy_sound_.empty())
-      ctx.audio_->play(ctx.happy_sound_);
+    loadPlaylist(ctx);
+    index_ = 0;
+    remaining_ = playlist_.size();
+    done_ = false;
+    intro_pending_ = ctx.playModesTrack("happy.mp3");
+    if(intro_pending_){
+      if(remaining_ == 0){
+        RCLCPP_WARN(ctx.get_logger(), "No se encontraron audios en %s", target_dir_.c_str());
+      }
+      return;
+    }
+    if(remaining_ == 0){
+      RCLCPP_WARN(ctx.get_logger(), "No se encontraron audios en %s", target_dir_.c_str());
+      done_ = true;
+      return;
+    }
+    if(!startNext(ctx)){
+      RCLCPP_WARN(ctx.get_logger(), "No se pudo iniciar la reproduccion en Happy");
+      done_ = true;
+    }
   }
 
   void onUpdate(StateHandler &ctx) override {
     auto now = std::chrono::steady_clock::now();
-    if(now - entered_ >= std::chrono::seconds(10)){
-      ctx.setState(Mood::FROWN);
+    if(now - last_switch_ >= std::chrono::milliseconds(800)){
+      last_switch_ = now;
+      forward_ = !forward_;
+      float delta = 10.0f;
+      if(forward_){
+        ctx.servos_.setAngleFromNeutral(0, +delta);
+        ctx.servos_.setAngleFromNeutral(1, -delta);
+      } else {
+        ctx.servos_.setAngleFromNeutral(0, -delta);
+        ctx.servos_.setAngleFromNeutral(1, +delta);
+      }
+    }
+
+    if(done_){
+      ctx.setState(Mood::ESPERA);
       return;
     }
-    if(now - last_switch_ < std::chrono::milliseconds(800)) return;
-    last_switch_ = now;
-    forward_ = !forward_;
-    float delta = 10.0f;
-    if(forward_){
-      ctx.servos_.setAngleFromNeutral(0, +delta);
-      ctx.servos_.setAngleFromNeutral(1, -delta);
-    } else {
-      ctx.servos_.setAngleFromNeutral(0, -delta);
-      ctx.servos_.setAngleFromNeutral(1, +delta);
+    if(!ctx.audio_) return;
+    if(ctx.audio_->isPlaying()) return;
+    if(intro_pending_){
+      intro_pending_ = false;
+      if(remaining_ == 0){
+        done_ = true;
+        ctx.setState(Mood::ESPERA);
+        return;
+      }
+      if(!startNext(ctx)){
+        RCLCPP_WARN(ctx.get_logger(), "No se pudieron reproducir las pistas de Happy");
+        done_ = true;
+        ctx.setState(Mood::ESPERA);
+      }
+      return;
+    }
+    if(remaining_ == 0){
+      done_ = true;
+      ctx.setState(Mood::ESPERA);
+      return;
+    }
+    if(!startNext(ctx)){
+      RCLCPP_WARN(ctx.get_logger(), "No se pudieron reproducir las pistas de Happy");
+      done_ = true;
+      ctx.setState(Mood::ESPERA);
     }
   }
 
   void onExit(StateHandler &ctx) override {
-    ctx.servos_.setIdle(0);
-    ctx.servos_.setIdle(1);
+    ctx.servos_.stop(0);
+    ctx.servos_.stop(1);
+    ctx.servos_.setPwmEnabled(0, false);
+    ctx.servos_.setPwmEnabled(1, false);
   }
 
 private:
+  void loadPlaylist(StateHandler &ctx){
+    playlist_.clear();
+    const char* home = std::getenv("HOME");
+    if(!home){
+      RCLCPP_WARN(ctx.get_logger(), "HOME no definido: sin playlist Happy");
+      return;
+    }
+
+    target_dir_ = (fs::path(home) / "Music" / "Happy").string();
+    std::error_code ec;
+    fs::path dir(target_dir_);
+    if(!fs::exists(dir, ec) || !fs::is_directory(dir, ec)){
+      RCLCPP_WARN(ctx.get_logger(), "Carpeta Happy no encontrada: %s", target_dir_.c_str());
+      return;
+    }
+
+    std::vector<fs::path> files;
+    for(fs::directory_iterator it(dir, ec), end; it != end; it.increment(ec)){
+      if(ec) break;
+      const auto& entry = *it;
+      if(!entry.is_regular_file(ec)) continue;
+      fs::path p = entry.path();
+      if(!ctx.audio_ || !ctx.audio_->isSupportedFile(p.string())) continue;
+      files.push_back(p);
+    }
+
+    std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b){
+      return a.filename().string() < b.filename().string();
+    });
+
+    for(const auto& p : files){
+      auto canonical = fs::canonical(p, ec);
+      if(ec) continue;
+      playlist_.push_back(canonical.string());
+    }
+  }
+
+  bool startNext(StateHandler &ctx){
+    if(!ctx.audio_ || playlist_.empty() || remaining_ == 0) return false;
+
+    size_t attempts = 0;
+    while(attempts < playlist_.size() && remaining_ > 0){
+      const std::string& path = playlist_[index_];
+      index_ = (index_ + 1) % playlist_.size();
+      ++attempts;
+      --remaining_;
+      if(ctx.audio_->play(path)) return true;
+      RCLCPP_WARN(ctx.get_logger(), "Fallo al reproducir %s", path.c_str());
+    }
+    return false;
+  }
+
   bool forward_{true};
-  std::chrono::steady_clock::time_point entered_{};
   std::chrono::steady_clock::time_point last_switch_{};
+  std::vector<std::string> playlist_{};
+  size_t index_{0};
+  size_t remaining_{0};
+  std::string target_dir_{};
+  bool intro_pending_{false};
+  bool done_{false};
 };
 
 class StateHandler::AngryState : public StateHandler::State {
@@ -71,12 +177,21 @@ public:
     ctx.publishMood(Mood::ANGRY);
     ctx.publishIdle(true);
     ctx.publishEyePos(robo_eyes::Pos::CENTER);
+    ctx.servos_.setPwmEnabled(0, true);
+    ctx.servos_.setPwmEnabled(1, true);
     ctx.servos_.moveTo(0, 30.0f, 120.0f);
     ctx.servos_.moveTo(1,150.0f, 120.0f);
     loadPlaylist(ctx);
     index_ = 0;
     remaining_ = playlist_.size();
     done_ = false;
+    intro_pending_ = ctx.playModesTrack("angry.mp3");
+    if(intro_pending_){
+      if(remaining_ == 0){
+        RCLCPP_WARN(ctx.get_logger(), "No se encontraron audios en %s", target_dir_.c_str());
+      }
+      return;
+    }
     if(remaining_ == 0){
       RCLCPP_WARN(ctx.get_logger(), "No se encontraron audios en %s", target_dir_.c_str());
       done_ = true;
@@ -95,6 +210,20 @@ public:
     }
     if(!ctx.audio_) return;
     if(ctx.audio_->isPlaying()) return;
+    if(intro_pending_){
+      intro_pending_ = false;
+      if(remaining_ == 0){
+        done_ = true;
+        ctx.setState(Mood::ESPERA);
+        return;
+      }
+      if(!startNext(ctx)){
+        RCLCPP_WARN(ctx.get_logger(), "No se pudieron reproducir las pistas de Angry");
+        done_ = true;
+        ctx.setState(Mood::ESPERA);
+      }
+      return;
+    }
     if(remaining_ == 0){
       done_ = true;
       ctx.setState(Mood::ESPERA);
@@ -108,8 +237,10 @@ public:
   }
 
   void onExit(StateHandler &ctx) override {
-    ctx.servos_.setIdle(0);
-    ctx.servos_.setIdle(1);
+    ctx.servos_.stop(0);
+    ctx.servos_.stop(1);
+    ctx.servos_.setPwmEnabled(0, false);
+    ctx.servos_.setPwmEnabled(1, false);
   }
 
 private:
@@ -170,21 +301,31 @@ private:
   size_t remaining_{0};
   std::string target_dir_{};
   bool done_{false};
+  bool intro_pending_{false};
 };
 
 class StateHandler::SadState : public StateHandler::State {
 public:
   void onEnter(StateHandler &ctx) override {
     RCLCPP_INFO(ctx.get_logger(), "Entering SAD state");
-    ctx.publishMood(Mood::FROWN);
+    ctx.publishMood(Mood::TIRED);
     ctx.publishIdle(true);
     ctx.publishEyePos(robo_eyes::Pos::CENTER);
-    ctx.servos_.setIdle(0);
-    ctx.servos_.setIdle(1);
+    ctx.servos_.stop(0);
+    ctx.servos_.stop(1);
+    ctx.servos_.setPwmEnabled(0, false);
+    ctx.servos_.setPwmEnabled(1, false);
     loadPlaylist(ctx);
     index_ = 0;
     remaining_ = playlist_.size();
     done_ = false;
+    intro_pending_ = ctx.playModesTrack("sad.mp3");
+    if(intro_pending_){
+      if(remaining_ == 0){
+        RCLCPP_WARN(ctx.get_logger(), "No se encontraron audios en %s", target_dir_.c_str());
+      }
+      return;
+    }
     if(remaining_ == 0){
       RCLCPP_WARN(ctx.get_logger(), "No se encontraron audios en %s", target_dir_.c_str());
       done_ = true;
@@ -203,6 +344,20 @@ public:
     }
     if(!ctx.audio_) return;
     if(ctx.audio_->isPlaying()) return;
+    if(intro_pending_){
+      intro_pending_ = false;
+      if(remaining_ == 0){
+        done_ = true;
+        ctx.setState(Mood::ESPERA);
+        return;
+      }
+      if(!startNext(ctx)){
+        RCLCPP_WARN(ctx.get_logger(), "No se pudieron reproducir las pistas de Sad");
+        done_ = true;
+        ctx.setState(Mood::ESPERA);
+      }
+      return;
+    }
     if(remaining_ == 0){
       done_ = true;
       ctx.setState(Mood::ESPERA);
@@ -273,6 +428,7 @@ private:
   size_t remaining_{0};
   std::string target_dir_{};
   bool done_{false};
+  bool intro_pending_{false};
 };
 
 class StateHandler::EsperaState : public StateHandler::State {
@@ -282,8 +438,10 @@ public:
     ctx.publishMood(Mood::ESPERA);
     ctx.publishIdle(true);
     ctx.publishEyePos(robo_eyes::Pos::CENTER);
-    ctx.servos_.setIdle(0);
-    ctx.servos_.setIdle(1);
+    ctx.servos_.stop(0);
+    ctx.servos_.stop(1);
+    ctx.servos_.setPwmEnabled(0, false);
+    ctx.servos_.setPwmEnabled(1, false);
     next_action_ = std::chrono::steady_clock::now() + std::chrono::seconds(10);
 
     if(ctx.pending_return_){
@@ -343,8 +501,10 @@ public:
     RCLCPP_INFO(ctx.get_logger(), "Entering LOVE state");
     std_msgs::msg::UInt8 msg; msg.data = static_cast<uint8_t>(Mood::LOVE);
     ctx.mood_pub_->publish(msg);
-    ctx.servos_.setIdle(0);
-    ctx.servos_.setIdle(1);
+    ctx.servos_.stop(0);
+    ctx.servos_.stop(1);
+    ctx.servos_.setPwmEnabled(0, false);
+    ctx.servos_.setPwmEnabled(1, false);
     stage_ = 0;
     done_ = !playNext(ctx);
   }
@@ -387,6 +547,10 @@ public:
     ctx.publishMood(Mood::BAILOTEO_WAIT);
     ctx.publishIdle(false);
     ctx.publishEyePos(robo_eyes::Pos::CENTER);
+    ctx.servos_.stop(0);
+    ctx.servos_.stop(1);
+    ctx.servos_.setPwmEnabled(0, false);
+    ctx.servos_.setPwmEnabled(1, false);
   }
   void onExit(StateHandler &ctx) override {
     ctx.publishEyePos(robo_eyes::Pos::CENTER);
@@ -400,6 +564,10 @@ public:
     ctx.publishMood(Mood::BAILOTEO);
     ctx.publishIdle(false);
     ctx.publishEyePos(robo_eyes::Pos::CENTER);
+    ctx.servos_.stop(0);
+    ctx.servos_.stop(1);
+    ctx.servos_.setPwmEnabled(0, false);
+    ctx.servos_.setPwmEnabled(1, false);
     last_switch_ = std::chrono::steady_clock::now();
     side_left_ = false;
   }
@@ -546,8 +714,10 @@ public:
     ctx.publishMood(Mood::PEO);
     ctx.publishIdle(true);
     ctx.publishEyePos(robo_eyes::Pos::CENTER);
-    ctx.servos_.setIdle(0);
-    ctx.servos_.setIdle(1);
+    ctx.servos_.stop(0);
+    ctx.servos_.stop(1);
+    ctx.servos_.setPwmEnabled(0, false);
+    ctx.servos_.setPwmEnabled(1, false);
     loadPlaylist(ctx);
     index_ = 0;
     remaining_ = playlist_.size();
@@ -692,11 +862,15 @@ StateHandler::StateHandler()
   mode_sub_ = create_subscription<std_msgs::msg::UInt8>(
       "/mode", 10,
       std::bind(&StateHandler::modeCallback, this, std::placeholders::_1));
+  poweroff_sub_ = create_subscription<std_msgs::msg::Bool>(
+      "/system/poweroff", 10,
+      std::bind(&StateHandler::poweroffCallback, this, std::placeholders::_1));
   timer_ = create_wall_timer(50ms, std::bind(&StateHandler::update, this));
   setState(Mood::ESPERA);
 }
 
 void StateHandler::update() {
+  if(poweroff_active_) return;
   if (current_state_) current_state_->onUpdate(*this);
 }
 
@@ -761,9 +935,21 @@ void StateHandler::sendEyeAction(EyeAction action){
 }
 
 void StateHandler::modeCallback(const std_msgs::msg::UInt8::SharedPtr msg) {
+  if(poweroff_active_) return;
   auto m = static_cast<Mood>(msg->data);
   RCLCPP_INFO(get_logger(), "Received mode request: %u", static_cast<unsigned>(msg->data));
   setState(m);
+}
+
+void StateHandler::poweroffCallback(const std_msgs::msg::Bool::SharedPtr msg) {
+  if(!msg->data) return;
+  if(poweroff_active_) return;
+  poweroff_active_ = true;
+  if(audio_) audio_->stop();
+  servos_.stop(0);
+  servos_.stop(1);
+  servos_.setPwmEnabled(0, false);
+  servos_.setPwmEnabled(1, false);
 }
 
 void StateHandler::setState(Mood m) {

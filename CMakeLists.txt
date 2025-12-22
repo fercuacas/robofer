@@ -132,6 +132,7 @@ add_executable(eyes_unified_node
   src/screen/EyesUnifiedNode.cpp
   src/screen/UiMenu.cpp
   src/screen/MusicMenu.cpp
+  src/screen/VolumeMenu.cpp
 )
 ament_target_dependencies(eyes_unified_node rclcpp std_msgs std_srvs)
 target_link_libraries(eyes_unified_node

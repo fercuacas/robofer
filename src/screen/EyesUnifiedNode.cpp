@@ -18,6 +18,7 @@
 #include "robofer/screen/Display.hpp"
 #include "robofer/screen/UiMenu.hpp"
 #include "robofer/screen/MusicMenu.hpp"
+#include "robofer/screen/VolumeMenu.hpp"
 #include "robofer/audio/AudioPlayer.hpp"
 #include "robofer/msg/wifi_status.hpp"
 
@@ -55,6 +56,7 @@ int main(int argc, char** argv){
   eyes.setMood(Mood::DEFAULT);
 
   auto mode_pub = node->create_publisher<std_msgs::msg::UInt8>("/mode", 10);
+  auto poweroff_pub = node->create_publisher<std_msgs::msg::Bool>("/system/poweroff", 1);
   auto bt_power_client = node->create_client<std_srvs::srv::SetBool>("/bluetooth/power");
   auto bt_pair_client  = node->create_client<std_srvs::srv::SetBool>("/bluetooth/pair_response");
 
@@ -65,12 +67,17 @@ int main(int argc, char** argv){
   MenuController* menu_ptr = nullptr;
 
   const char* home_env = std::getenv("HOME");
-  std::string music_dir = std::string(home_env ? home_env : "") + "/Music";
+  std::string music_dir = home_env
+    ? (std::string(home_env) + "/Music/Canciones")
+    : "/Music/Canciones";
   robo_audio::AudioPlayer audio_player;
   audio_player.setSearchPaths({music_dir});
   audio_player.reindex();
   robo_ui::MusicMenu music_menu(audio_player);
   bool music_mode = false;
+  robo_ui::VolumeMenu volume_menu;
+  bool volume_mode = false;
+  bool poweroff_pending = false;
   std::atomic<Mood> current_mood{Mood::DEFAULT};
   std::atomic<Mood> base_mood{Mood::DEFAULT};
   Mood last_regular_mood = Mood::ESPERA;
@@ -174,12 +181,37 @@ int main(int argc, char** argv){
         RCLCPP_INFO(log, "MenuAction -> mode ESPERA");
         break;
       case MenuAction::POWEROFF:
-        RCLCPP_WARN(log, "MenuAction: POWEROFF (llamando a sudo poweroff)");
+        if(poweroff_pending) break;
+        if(menu_ptr) menu_ptr->hide();
+        music_mode = false;
+        volume_mode = false;
+        music_menu.cancelBailoteo();
+        audio_player.stop();
+        poweroff_pending = true;
+        if(poweroff_pub){
+          std_msgs::msg::Bool msg;
+          msg.data = true;
+          poweroff_pub->publish(msg);
+        }
+        if(home_env){
+          std::string path = std::string(home_env) + "/Music/Modos/apagar.mp3";
+          if(audio_player.play(path)){
+            RCLCPP_WARN(log, "MenuAction: POWEROFF (reproduciendo apagar.mp3)");
+            break;
+          }
+        }
+        RCLCPP_WARN(log, "MenuAction: POWEROFF (audio no disponible, apagando)");
         std::system("sudo poweroff &");
+        poweroff_pending = false;
         break;
       case MenuAction::MUSIC_MENU:
         RCLCPP_INFO(log, "MenuAction: MUSIC_MENU");
         music_mode = true;
+        break;
+      case MenuAction::VOLUME_MENU:
+        RCLCPP_INFO(log, "MenuAction: VOLUME_MENU");
+        volume_mode = true;
+        volume_menu.enter();
         break;
       case MenuAction::BT_CONNECT: {
         RCLCPP_INFO(log, "MenuAction: BT_CONNECT");
@@ -262,10 +294,17 @@ int main(int argc, char** argv){
     "/ui/button", 10,
     [&](const std_msgs::msg::Int32::SharedPtr msg){
       std::lock_guard<std::mutex> lk(ui_mtx);
+      if(poweroff_pending) return;
       int v = msg->data;
       if(v < 0 || v > 3) return;
       UiKey key = static_cast<UiKey>(v);
-      if(music_mode){
+      if(volume_mode){
+        volume_menu.onKey(key);
+        if(volume_menu.takeExit()){
+          volume_mode = false;
+          menu.onKey(UiKey::BACK);
+        }
+      } else if(music_mode){
         bool bailoteo_before = bailoteo_active;
         music_menu.onKey(key);
         bool bailoteo_after = bailoteo_active;
@@ -345,6 +384,7 @@ int main(int argc, char** argv){
   double font_scale = std::clamp(DH / 200.0, 0.1, 1.0);
   menu.setFontScale(font_scale);
   music_menu.setFontScale(font_scale);
+  volume_menu.setFontScale(font_scale);
   cv::Mat canvas(DH, DW, CV_8UC3, cv::Scalar(0,0,0));
 
   auto wifi_sub = node->create_subscription<robofer::msg::WifiStatus>(
@@ -375,6 +415,15 @@ int main(int argc, char** argv){
 
     {
       std::lock_guard<std::mutex> lk(ui_mtx);
+      if(poweroff_pending){
+        eye_action = EyeAction::NONE;
+        eyes.setCuriosity(false);
+        eyes.setMood(Mood::TIRED);
+        if(!audio_player.isPlaying()){
+          std::system("sudo poweroff &");
+          poweroff_pending = false;
+        }
+      }
       auto now = std::chrono::steady_clock::now();
       if(eye_action != EyeAction::NONE){
         if(now >= action_until){
@@ -433,7 +482,9 @@ int main(int argc, char** argv){
         }
       }
 
-      if(music_mode){
+      if(volume_mode){
+        volume_menu.draw(canvas);
+      } else if(music_mode){
         music_menu.draw(canvas);
       } else {
         menu.draw(canvas);

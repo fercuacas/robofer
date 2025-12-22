@@ -102,6 +102,7 @@ private:
    * @param msg Incoming message with the desired mood.
    */
   void modeCallback(const std_msgs::msg::UInt8::SharedPtr msg);
+  void poweroffCallback(const std_msgs::msg::Bool::SharedPtr msg);
 
   /**
    * @brief Periodic update tick invoked by a timer.
@@ -157,12 +158,14 @@ private:
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr eye_idle_pub_;
   rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr eye_action_pub_;
   rclcpp::Subscription<std_msgs::msg::UInt8>::SharedPtr mode_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr poweroff_sub_;
   rclcpp::TimerBase::SharedPtr timer_;
   std::unique_ptr<State> current_state_;
   robo_eyes::Mood last_regular_mood_{robo_eyes::Mood::ESPERA};
   robo_eyes::Mood current_mood_{robo_eyes::Mood::ESPERA};
   bool welcome_played_{false};
   bool pending_return_{false};
+  bool poweroff_active_{false};
 };
 
 } // namespace robofer

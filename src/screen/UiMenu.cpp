@@ -33,10 +33,11 @@ MenuController::Item MenuController::buildDefaultTree(){
   bt.children.push_back({"", false, MenuAction::NONE, {}});
 
   Item music; music.label = "Music"; music.is_submenu = false; music.action = MenuAction::MUSIC_MENU;
+  Item volume; volume.label = "Volumen"; volume.is_submenu = false; volume.action = MenuAction::VOLUME_MENU;
 
   Item apagar; apagar.label = "Apagar"; apagar.is_submenu = false; apagar.action = MenuAction::POWEROFF;
 
-  root.children = {modos, wifi, bt, music, apagar};
+  root.children = {modos, wifi, bt, music, volume, apagar};
   return root;
 }
 

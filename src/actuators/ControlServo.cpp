@@ -56,12 +56,14 @@ ControlServo::~ControlServo(){
 
 void ControlServo::setSpeed(int id, float deg_per_sec){
   if(id < 0 || id >= (int)servos_.size()) return;
+  servos_[id].pwm_enabled_ = true;
   servos_[id].speed_ = deg_per_sec;
   servos_[id].has_target_ = false;
 }
 
 void ControlServo::moveTo(int id, float angle_deg, float speed_deg_per_sec){
   if(id < 0 || id >= (int)servos_.size()) return;
+  servos_[id].pwm_enabled_ = true;
   servos_[id].target_angle_ = angle_deg;
   servos_[id].speed_ = std::abs(speed_deg_per_sec);
   servos_[id].has_target_ = true;
@@ -71,6 +73,15 @@ void ControlServo::stop(int id){
   if(id < 0 || id >= (int)servos_.size()) return;
   servos_[id].speed_ = 0.0f;
   servos_[id].has_target_ = false;
+}
+
+void ControlServo::setPwmEnabled(int id, bool enabled){
+  if(id < 0 || id >= (int)servos_.size()) return;
+  servos_[id].pwm_enabled_ = enabled;
+  if(!enabled){
+    servos_[id].speed_ = 0.0f;
+    servos_[id].has_target_ = false;
+  }
 }
 
 void ControlServo::setIdle(int id){
@@ -132,9 +143,11 @@ void ControlServo::threadFunc(Servo &s){
     }
 
     float pw = min_pw + (ang / 180.0f) * (max_pw - min_pw);
-    if(!sim_ && s.line_){
+    if(!sim_ && s.line_ && s.pwm_enabled_.load()){
       gpiod_line_set_value(s.line_, 1);
       std::this_thread::sleep_for(std::chrono::microseconds((int)pw));
+      gpiod_line_set_value(s.line_, 0);
+    } else if(!sim_ && s.line_) {
       gpiod_line_set_value(s.line_, 0);
     }
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - start);

@@ -61,6 +61,13 @@ public:
   void stop(int id);
 
   /**
+   * @brief Enable or disable PWM output for a servo.
+   * @param id Servo identifier.
+   * @param enabled When false, PWM pulses are not sent.
+   */
+  void setPwmEnabled(int id, bool enabled);
+
+  /**
    * @brief Move servo back to the idle (zero) angle.
    * @param id Servo identifier.
    */
@@ -92,7 +99,7 @@ private:
     int id_{0};
     gpiod_line *line_{nullptr};
     std::thread thread_;
-    std::atomic<bool> pwm_enabled_{true};
+    std::atomic<bool> pwm_enabled_{false};
     std::atomic<bool> running_{false};
     std::atomic<float> current_angle_{0.0f};
     std::atomic<float> target_angle_{0.0f};
