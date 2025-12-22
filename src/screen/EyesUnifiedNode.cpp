@@ -442,9 +442,9 @@ int main(int argc, char** argv){
         eye_action = EyeAction::NONE;
         eyes.setCuriosity(false);
         eyes.setAutoblinker(false);
-        eyes.close();
         eyes.setMood(Mood::TIRED);
         if(poweroff_mode == PoweroffMode::FAST){
+          eyes.close();
           if(poweroff_stage == 0){
             std::system("sudo poweroff &");
             poweroff_stage = 1;
@@ -462,6 +462,7 @@ int main(int argc, char** argv){
             if(!audio_player.isPlaying()) poweroff_stage = 4;
           }
           if(poweroff_stage == 4){
+            eyes.close();
             std::system("sudo poweroff &");
             poweroff_stage = 5;
           }
