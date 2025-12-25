@@ -356,10 +356,11 @@ private:
    * @brief Render the eyes into the internal canvas.
    */
   void drawEyes();
+  void drawPuxaineLips();
 
 private:
   // canvas
-  cv::Mat canvas_{}; // CV_8UC1
+  cv::Mat canvas_{}; // CV_8UC3
   int screen_w_=128, screen_h_=64;
 
   // FPS control
@@ -370,6 +371,7 @@ private:
   bool tired_=false, angry_=false, happy_=false;
   bool frown_=false; // <— ceño fruncido
   bool love_=false;  // <— ojos en modo corazón
+  bool puxaine_=false; // <— labios rojos visibles
   bool curious_=false; // outer eye grows when looking sideways
   bool cyclops_=false; // single eye
   bool eyeL_open_=false, eyeR_open_=false;

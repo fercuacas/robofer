@@ -515,11 +515,24 @@ int main(int argc, char** argv){
       if(roi.width > 0 && roi.height > 0){
         cv::Mat src = m(cv::Rect(0,0,roi.width,roi.height));
         cv::Mat dst = canvas(roi);
-        cv::cvtColor(src, dst, cv::COLOR_GRAY2BGR);
+
+        if(src.type() == CV_8UC1){
+          cv::cvtColor(src, dst, cv::COLOR_GRAY2BGR);
+        } else {
+          src.copyTo(dst);
+        }
+
         if(current_mood.load(std::memory_order_relaxed) == Mood::LOVE){
+          cv::Mat gray;
+          if(src.channels() == 1){
+            gray = src;
+          } else {
+            cv::cvtColor(src, gray, cv::COLOR_BGR2GRAY);
+          }
+
           cv::Mat mask_inner, mask_border;
-          cv::inRange(src, 200, 255, mask_inner);      // blanco -> rosa claro
-          cv::inRange(src, 1, 199, mask_border);       // gris -> rosa oscuro
+          cv::inRange(gray, 200, 255, mask_inner);      // blanco -> rosa claro
+          cv::inRange(gray, 1, 199, mask_border);       // gris -> rosa oscuro
           cv::Mat pink_light(dst.size(), CV_8UC3, cv::Scalar(220, 160, 230));
           cv::Mat pink_dark(dst.size(), CV_8UC3, cv::Scalar(150, 90, 170));
           pink_dark.copyTo(dst, mask_border);
